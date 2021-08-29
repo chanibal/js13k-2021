@@ -1,3 +1,4 @@
+"use strict";
 const renderer = new THREE.WebGLRenderer();
 renderer.xr.enabled = true;
 renderer.antialias = true;
@@ -116,12 +117,6 @@ const missleGeometry = new THREE.BufferGeometry().setFromPoints(points);
 const missleLine = new THREE.Line(missleGeometry, enemyLineMaterial);
 scene.add(missleLine);
 
-renderer.setAnimationLoop( function () {
-
-	renderer.render( scene, camera );
-
-} );
-
 document.body.appendChild( VRButton.createButton( renderer ) );
 
 
@@ -129,18 +124,68 @@ document.body.appendChild( VRButton.createButton( renderer ) );
 // https://immersiveweb.dev/#three.js
 var geometry = new THREE.CylinderBufferGeometry( 0, 0.05, 0.2, 32 ).rotateX( Math.PI / 2 );
 
-function onSelect() {
 
-    var material = new THREE.MeshPhongMaterial( { color: 0xffffff * Math.random() } );
-    var mesh = new THREE.Mesh( geometry, material );
-    mesh.position.set( 0, 0, - 0.3 ).applyMatrix4( controller.matrixWorld );
-    mesh.quaternion.setFromRotationMatrix( controller.matrixWorld );
-    scene.add( mesh );
+// const controller = renderer.xr.getController( 0 );
+// controller.addEventListener( 'select', onSelect );
+// scene.add( controller );
 
+// function onSelect(a,b,c) {
+// console.log("SELECT",a,b,c);
+//     var material = new THREE.MeshPhongMaterial( { color: 0xffffff * Math.random() } );
+//     var mesh = new THREE.Mesh( geometry, material );
+//     mesh.position.set( 0, 0, - 0.3 ).applyMatrix4( controller.matrixWorld );
+//     mesh.quaternion.setFromRotationMatrix( controller.matrixWorld );
+//     scene.add( mesh );
+
+// }
+
+
+// createController();
+
+const messageCanvas = document.createElement("canvas");
+messageCanvas.height = messageCanvas.width = 400;
+const messageTex = new THREE.CanvasTexture(messageCanvas);
+const plane = new THREE.PlaneGeometry();
+const mat = new THREE.Material
+
+const ah = new THREE.AxesHelper(1);
+scene.add(ah);
+
+function message(msg) {
+    const ctx = messageCanvas.getContext("2d");
+    ctx.font = '48px serif';
+    ctx.fillText(msg, 10, 50);
+    messageTex.needsUpdate = true;
+    const forward = new THREE.Vector3(0,0,-5);
+    forward.applyMatrix4(renderer.xr.getCamera().matrix);
+    ah.position.set(forward);
+    // scene.add(new THREE.Mesh(plane, ))
 }
 
-function createController() {
-    controller = renderer.xr.getController( 0 );
-    controller.addEventListener( 'select', onSelect );
-    scene.add( controller );
+
+setInterval(() => { message(+new Date()) }, 1000);
+
+
+function fire(v3) {
+    const projectile = new THREE.AxesHelper(0.1);
+    projectile.position.copy(v3);
+    scene.add(projectile);
+    setTimeout(() => { scene.remove(projectile); }, 1000);
+    // TODO
 }
+
+const controller0 = renderer.xr.getController(0);
+const controller1 = renderer.xr.getController(1);
+controller0.addEventListener("select", (ev) => { fire(controller0.position) });
+controller1.addEventListener("select", (ev) => { fire(controller1.position) });
+
+const controllerHelper0 = new THREE.AxesHelper(0.1);
+const controllerHelper1 = new THREE.AxesHelper(0.1);
+scene.add(controllerHelper0);
+scene.add(controllerHelper1);
+
+renderer.setAnimationLoop( function () {
+    controllerHelper0.position.copy(controller0.position);
+    controllerHelper1.position.copy(controller1.position);
+	renderer.render( scene, camera );
+} );
