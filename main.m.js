@@ -1,35 +1,39 @@
-import ecs from "./ecs.m.js";
-
 const renderer = new THREE.WebGLRenderer();
 renderer.xr.enabled = true;
 renderer.antialias = true;
-renderer.setSize( window.innerWidth, window.innerHeight );  // TODO: resize
+renderer.setSize( window.innerWidth, window.innerHeight );
+// window.addEventListener("resize", () => { renderer.setSize( window.innerWidth, window.innerHeight ) });  FIXME: aspect
 document.body.appendChild( renderer.domElement );
+
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 camera.position.set(0, 1.7, 0);
-// camera.lookAt(0,0,0);
+camera.lookAt(-5,-3,-1);
 
 
-
-const gridHelper = new THREE.GridHelper( 100, 100 );
-scene.add( gridHelper );
-
-scene.fog = new THREE.Fog(0, 1, 15);
-
-const PI = Math.PI;
 
 function Random(scale = 1, base = 0, pow = 1) { 
     return base + Math.pow(Math.random(), pow) * scale; 
 }
 
 // FIXME
-function RandomCos(scale = 1, base = 0, pow = 1) { 
-    return base + (Math.cos((Math.random() - 0.5) * 3.14)) * scale; 
+function RandomNormalDist(scale = 1, base = 0) { 
+    let r = Math.random;
+    return base + (r()+r()+r()+r()+r()-2.5)/5 * scale; 
 }
 
+const PI = Math.PI;
+
+
+
+
+// Background, fog etc
+const gridHelper = new THREE.GridHelper( 100, 100 );
+scene.add( gridHelper );
+
+// scene.fog = new THREE.Fog(0, 1, 15);
 
 // generate city
 // buildings are cubes scaled in width (x) and height (y), then rotated
@@ -37,7 +41,7 @@ const buildings = [];
 const box = new THREE.BoxGeometry();
 const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: true } );
 
-for(let i = 0; i < 5000; i++)
+for(let i = 0; i < 1000; i++)
 {
     const citySize = 20;
     const p = 1;
@@ -46,9 +50,9 @@ for(let i = 0; i < 5000; i++)
     const height = Random(1,0.2,3);
     const building = new THREE.Mesh(box, buildingMaterial);
     building.position.set(
-        Random(citySize, -citySize/2),
+        RandomNormalDist(citySize),
         height/2,
-        Random(citySize, -citySize/2),
+        RandomNormalDist(citySize),
     );
 
     // don't collide buildings
@@ -117,8 +121,6 @@ scene.add(missleLine);
 // https://immersiveweb.dev/#three.js
 var geometry = new THREE.CylinderBufferGeometry( 0, 0.05, 0.2, 32 ).rotateX( Math.PI / 2 );
 
-
-
 const messageCanvas = document.createElement("canvas");
 messageCanvas.height = messageCanvas.width = 400;
 const messageTex = new THREE.CanvasTexture(messageCanvas);
@@ -179,4 +181,4 @@ renderer.setAnimationLoop(() => {
 } );
 
 
-export { camera, renderer, scene }
+// export { camera, renderer, scene }
