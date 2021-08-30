@@ -1,8 +1,9 @@
-"use strict";
+import ecs from "./ecs.m.js";
+
 const renderer = new THREE.WebGLRenderer();
 renderer.xr.enabled = true;
 renderer.antialias = true;
-renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.setSize( window.innerWidth, window.innerHeight );  // TODO: resize
 document.body.appendChild( renderer.domElement );
 
 const scene = new THREE.Scene();
@@ -12,8 +13,6 @@ camera.position.set(0, 1.7, 0);
 // camera.lookAt(0,0,0);
 
 
-
-const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: false } );
 
 const gridHelper = new THREE.GridHelper( 100, 100 );
 scene.add( gridHelper );
@@ -36,6 +35,7 @@ function RandomCos(scale = 1, base = 0, pow = 1) {
 // buildings are cubes scaled in width (x) and height (y), then rotated
 const buildings = [];
 const box = new THREE.BoxGeometry();
+const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: true } );
 
 for(let i = 0; i < 5000; i++)
 {
@@ -178,3 +178,5 @@ renderer.setAnimationLoop(() => {
     }
 } );
 
+
+export { camera, renderer, scene }

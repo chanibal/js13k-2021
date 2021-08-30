@@ -4,11 +4,11 @@
 		<meta charset="utf-8">
 		<title>JS13K 2021</title>
 	</head>
-	<body>
+	<body style="margin:0">
 		<script src="three.js" type="text/javascript"></script>
-		<script src="XRButtonLite.js" type="text/javascript"></script>
-		<script src="main.js" type="text/javascript"></script>
-		<script>
+		<script type="module">
+			import { camera } from "./main.m.js";
+			import XRButtonLite from "./XRButtonLite.js";
 			XRButtonLite(document.body);
 		</script>
 	</body>
