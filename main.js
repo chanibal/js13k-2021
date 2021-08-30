@@ -11,11 +11,7 @@ const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.inner
 camera.position.set(0, 1.7, 0);
 // camera.lookAt(0,0,0);
 
-const controls = new THREE.OrbitControls( camera, renderer.domElement );
-controls.minDistance = 1;
-controls.maxDistance = 5;
-controls.target.set(0, 1.7);
-controls.update();
+
 
 const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: false } );
 
@@ -117,30 +113,11 @@ const missleGeometry = new THREE.BufferGeometry().setFromPoints(points);
 const missleLine = new THREE.Line(missleGeometry, enemyLineMaterial);
 scene.add(missleLine);
 
-document.body.appendChild( VRButton.createButton( renderer ) );
-
-
 
 // https://immersiveweb.dev/#three.js
 var geometry = new THREE.CylinderBufferGeometry( 0, 0.05, 0.2, 32 ).rotateX( Math.PI / 2 );
 
 
-// const controller = renderer.xr.getController( 0 );
-// controller.addEventListener( 'select', onSelect );
-// scene.add( controller );
-
-// function onSelect(a,b,c) {
-// console.log("SELECT",a,b,c);
-//     var material = new THREE.MeshPhongMaterial( { color: 0xffffff * Math.random() } );
-//     var mesh = new THREE.Mesh( geometry, material );
-//     mesh.position.set( 0, 0, - 0.3 ).applyMatrix4( controller.matrixWorld );
-//     mesh.quaternion.setFromRotationMatrix( controller.matrixWorld );
-//     scene.add( mesh );
-
-// }
-
-
-// createController();
 
 const messageCanvas = document.createElement("canvas");
 messageCanvas.height = messageCanvas.width = 400;
@@ -174,8 +151,8 @@ function fire(v3) {
     // TODO
 }
 
-const controller0 = renderer.xr.getController(0);
-const controller1 = renderer.xr.getController(1);
+const controller0 = renderer.xr.getControllerGrip(0);
+const controller1 = renderer.xr.getControllerGrip(1);
 controller0.addEventListener("select", (ev) => { fire(controller0.position) });
 controller1.addEventListener("select", (ev) => { fire(controller1.position) });
 
@@ -184,8 +161,20 @@ const controllerHelper1 = new THREE.AxesHelper(0.1);
 scene.add(controllerHelper0);
 scene.add(controllerHelper1);
 
-renderer.setAnimationLoop( function () {
+renderer.setAnimationLoop(() => {
     controllerHelper0.position.copy(controller0.position);
     controllerHelper1.position.copy(controller1.position);
 	renderer.render( scene, camera );
+
+     // Re-Render the scene, but this time to the canvas (don't do this on Mobile!)
+     if (renderer.xr.isPresenting) {
+        renderer.xr.enabled = false;
+        let oldFramebuffer = renderer._framebuffer;
+        renderer.state.bindXRFramebuffer( null );
+        renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830 - Unneeded?
+        renderer.render(scene, camera);
+        renderer.xr.enabled = true;
+        renderer.state.bindXRFramebuffer(oldFramebuffer);
+    }
 } );
+
