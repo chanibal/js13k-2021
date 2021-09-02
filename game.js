@@ -1,4 +1,5 @@
 import ecs from "./ecs.m.js";
+import * as sounds from "./ZzFX-sounds.js";
 
 export const renderer = new THREE.WebGLRenderer();
 export const scene = new THREE.Scene();
@@ -128,7 +129,7 @@ class Actor {
     }
     destructor() {
         scene.remove(this.mesh);
-        zzfx(...zzfx_explode2);
+        zzfx(...sounds.zzfx_explode2);
     }
 }
 
@@ -284,7 +285,7 @@ class Explosion {
         this.mesh.scale.set(0,0,0);
         scene.add(this.mesh);
 
-        zzfx(...zzfx_explode);
+        zzfx(...sounds.zzfx_explode);
         // TODO: if explosion at ground, do a torus as shockwave
     }
 
@@ -341,8 +342,6 @@ function explode(position)
 
 ecs.register(Explosion, Damagable, Actor, Projectile, Trail);
 ecs.process(new ExplosionSystem(ecs), new DamagableSystem(ecs), new ActorSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs));
-
-zzfxV = 0;
 
 // setInterval(() => {
 //     // explode(new THREE.Vector3(RandomNormalDist(8),0.5,RandomNormalDist(8)));
