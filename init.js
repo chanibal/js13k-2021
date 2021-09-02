@@ -2,7 +2,7 @@ import XRButtonLite from "./XRButtonLite.js";
 import { camera, renderer } from "./game.js";
 import { zzfx_volume } from "./ZzFX.micro.js";
 
-XRButtonLite(document.body);
+XRButtonLite(renderer, document.body);
 
 zzfx_volume(0.1);
 

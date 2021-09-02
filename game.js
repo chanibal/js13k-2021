@@ -392,8 +392,8 @@ fire(V3(10,5,3), V3(0,0.5,0));
 
 const controller0 = renderer.xr.getControllerGrip(0);
 const controller1 = renderer.xr.getControllerGrip(1);
-controller0.addEventListener("select", (ev) => { fire(controller0.position) });
-controller1.addEventListener("select", (ev) => { fire(controller1.position) });
+controller0.addEventListener("select", (ev) => { fire(V3(0,0,0), controller0.position) });
+controller1.addEventListener("select", (ev) => { fire(V3(0,0,0), controller1.position) });
 
 const controllerHelper0 = new THREE.AxesHelper(0.1);
 const controllerHelper1 = new THREE.AxesHelper(0.1);
@@ -403,7 +403,9 @@ scene.add(controllerHelper1);
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
     controllerHelper0.position.copy(controller0.position);
+    controllerHelper0.rotation.copy(controller0.rotation);
     controllerHelper1.position.copy(controller1.position);
+    controllerHelper1.rotation.copy(controller1.rotation);
 	renderer.render( scene, camera );
 
     ecs.update(clock.getDelta());

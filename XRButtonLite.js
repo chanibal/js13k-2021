@@ -1,10 +1,11 @@
 /**
  * This is a truncated VRButton.js from THREE.js
  * Bind it as click to renderer.domElement
+ * @param {THREE.WebGLRenderer} renderer main renderer from THREE.js
  * @param {HTMLElement} element element the element to bind to, might be renderer.domElement or just document.body
  * @param {?Function} callback optional callback to be called when session starts (with the session as the argument) or ends (with null as the argument)
  */
-export default async (element, callback) => {
+export default async (renderer, element, callback) => {
 
 	if (!('xr' in navigator)) throw "No XR";
 	if(!await navigator.xr.isSessionSupported( 'immersive-vr' )) throw "No immersive-vr";
