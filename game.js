@@ -1,5 +1,6 @@
 import ecs from "./ecs.m.js";
 import * as sounds from "./ZzFX-sounds.js";
+import { zzfx } from "./ZzFX.micro.js";
 
 export const renderer = new THREE.WebGLRenderer();
 export const scene = new THREE.Scene();

@@ -10,11 +10,6 @@ cat << END
 	</head>
 	<body style="margin:0">
 		<script src="https://js13kgames.com/webxr-src/2021/three.js"></script>
-		<script>
-END
-cat ZzFX.micro.js | npx terser -c passes=2 -m
-cat << END
-        </script>
 		<script type="module">
 END
 
