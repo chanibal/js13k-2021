@@ -49,7 +49,7 @@ const PI = Math.PI;
 // Background, fog etc
 const gridHelper = new THREE.GridHelper( 100, 100 );
 scene.add( gridHelper );
-// scene.fog = new THREE.Fog(0, 1, 15);
+scene.fog = new THREE.Fog(0, 1, 15);
 // TODO: add a box geometry just beneath the grid to make domes out of nukes
 
 
@@ -219,9 +219,9 @@ const enemyMisslePrefab = new THREE.Group();
 export class Projectile {
     constructor(start, destination, speed, prefab) {
         // FIXME: don't double Actor
-        this.start = start;
-        this.position = start;
-        this.destination = destination;
+        this.start = start.clone();
+        this.position = start.clone();
+        this.destination = destination.clone();
         this.speed = speed;
         this.mesh = prefab.clone();
         this.mesh.position.copy(start);
@@ -382,6 +382,8 @@ function message(msg) {
 setInterval(() => { message(+new Date()) }, 1000);
 */
 
+const turret = V3(0,0,0);
+
 function fire(start, end) {
     ecs.create().add(
         new Projectile(start, end, 1, enemyMisslePrefab),
@@ -390,25 +392,85 @@ function fire(start, end) {
 
 fire(V3(10,5,3), V3(0,0.5,0));
 
-const controller0 = renderer.xr.getControllerGrip(0);
-const controller1 = renderer.xr.getControllerGrip(1);
-controller0.addEventListener("select", (ev) => { fire(V3(0,0,0), controller0.position) });
-controller1.addEventListener("select", (ev) => { fire(V3(0,0,0), controller1.position) });
+const cameraGroup = new THREE.Group();
+cameraGroup.position.set(0,0,0);
+scene.add(cameraGroup);
+cameraGroup.add(camera);
 
-const controllerHelper0 = new THREE.AxesHelper(0.1);
-const controllerHelper1 = new THREE.AxesHelper(0.1);
-scene.add(controllerHelper0);
-scene.add(controllerHelper1);
+class GripController {
+    constructor(rendererXr, prefab, cameraGroup) {
+        this.controllers = [
+            rendererXr.getControllerGrip(0),
+            rendererXr.getControllerGrip(1)
+        ];
+        this.gizmos = [
+            prefab.clone(),
+            prefab.clone()
+        ];
+        for (let g of this.gizmos) scene.add(g);
+        for (let c of this.controllers)
+        {
+            c.addEventListener("select", (ev) => fire(turret, c.position));
+            c.addEventListener("squeezestart", () => this.squeezestart(c));
+            c.addEventListener("squeezeend", () => this.squeezeend(c));
+        }
+        this.cameraGroup = cameraGroup;
+    }
+    update(dt) {
+        for(let i = 0; i < 2; i++)
+        {
+            let g = this.gizmos[i];
+            let c = this.controllers[i];
+            g.position.copy(c.position);
+            g.rotation.copy(c.rotation);
+        }
+
+        if(this.dragOrigin) {
+            const scale = 5;
+            let diff = this.dragOrigin.clone().sub(this.dragController.position);
+            diff.y = 0;
+            diff.multiplyScalar(5);
+            diff.add(this.camOrigin);
+            this.cameraGroup.position.copy(diff);
+        }
+
+        if(this.controllerDiffStart) {
+            const diff = this.controllers[0].position.distanceTo(this.controllers[1].position);
+            const ratio = diff/this.controllerDiffStart;
+            this.cameraGroup.scale.copy(this.camStartScale);
+            this.cameraGroup.scale.multiplyScalar(ratio);
+            console.log("ratio", ratio);
+        }
+    }
+    squeezestart(c) {
+        // Start single hand gesture
+        if(!this.dragOrigin) {
+            this.dragOrigin = c.position.clone();
+            this.dragController = c;
+            this.camOrigin = this.cameraGroup.position.clone();
+        }
+        // Start two hand gesture
+        else {
+            this.squeezeend();
+            this.controllerDiffStart = this.controllers[0].position.distanceTo(this.controllers[1].position);
+            this.camStartScale = this.cameraGroup.scale.clone();
+        }
+    }
+    squeezeend(c) {
+        delete this.dragOrigin;
+        delete this.controllerDiffStart;
+    }
+}
+
+const gripController = new GripController(renderer.xr, new THREE.AxesHelper(0.1), cameraGroup);
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
-    controllerHelper0.position.copy(controller0.position);
-    controllerHelper0.rotation.copy(controller0.rotation);
-    controllerHelper1.position.copy(controller1.position);
-    controllerHelper1.rotation.copy(controller1.rotation);
+    const dt = clock.getDelta();
+    ecs.update(dt);
+    gripController.update(dt);
+    
 	renderer.render( scene, camera );
-
-    ecs.update(clock.getDelta());
 
     // https://discourse.threejs.org/t/rendering-to-a-2d-canvas-while-xr-is-enabled/13707
     // Re-Render the scene, but this time to the canvas (don't do this on Mobile!)
