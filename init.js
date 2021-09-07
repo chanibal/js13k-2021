@@ -2,7 +2,20 @@ import XRButtonLite from "./XRButtonLite.js";
 import { camera, renderer } from "./game.js";
 import { zzfx_volume } from "./ZzFX.micro.js";
 
-XRButtonLite(renderer, document.body);
+try {
+    await XRButtonLite(renderer, document.body);
+} catch (ex) {
+    const popup = document.createElement("div");
+    const s = popup.style;
+        s.position="absolute";
+        s.top = s.left = s.right = s.bottom="5%";
+        s.border = "3px double red";
+        s.padding = "1em";
+        s.color = "red";
+        s.backgroundColor = "#000000cc";
+    popup.textContent = `ERROR:\n${ex}`;
+    document.body.appendChild(popup);
+}
 
 zzfx_volume(0.1);
 
