@@ -1,6 +1,7 @@
 import ecs from "./ecs.m.js";
 import * as sounds from "./ZzFX-sounds.js";
 import { zzfx } from "./ZzFX.micro.js";
+import * as Colliders from "./Collider.m.js";
 
 export const renderer = new THREE.WebGLRenderer();
 export const scene = new THREE.Scene();
@@ -35,7 +36,6 @@ function Random(scale = 1, base = 0, pow = 1) {
     return base + Math.pow(Math.random(), pow) * scale; 
 }
 
-// FIXME
 function RandomNormalDist(scale = 1, base = 0) { 
     let r = Math.random;
     return base + (r()+r()+r()+r()+r()-2.5)/5 * scale; 
@@ -94,6 +94,14 @@ for(let i = 0; i < 1000; i++)
     scene.add(building);
 }
 
+/***
+ * ECS Classes:
+ * - Explosion - has radius, destroys every Damagable it touches
+ * - Damagable - Explosion destroys it, requires another trait for shape; has points. Action on death?
+ * - Collidable - Can collide with something, has shape (cylinder, point, sphere)
+ * - Projectile - Has trajectory
+ * 
+ */
 
 
 /**
