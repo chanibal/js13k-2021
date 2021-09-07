@@ -5,6 +5,10 @@ import * as Colliders from "./Collider.m.js";
 import { GripController } from "./GripController.js";
 import { Trail, TrailSystem } from "./Trail.js";
 
+
+// Basic parts of engine
+let frameNumber = 0;
+
 export const renderer = new THREE.WebGLRenderer();
 renderer.xr.enabled = true;
 renderer.antialias = true;
@@ -26,9 +30,9 @@ document.body.appendChild( renderer.domElement );
 
 
 // Aliases to popular types:
-export const V3 = (x,y,z) => new THREE.Vector3(x,y,z);
+export const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x,y,z);
 const PI = Math.PI;
-// const Mat = THREE.MeshLambertMaterial;
+const Mat = THREE.MeshLambertMaterial;
 
 function Random(scale = 1, base = 0, pow = 1) { 
     return base + Math.pow(Math.random(), pow) * scale; 
@@ -40,76 +44,209 @@ function RandomNormalDist(scale = 1, base = 0) {
 }
 
 
-
-
-
-// Background, fog etc
+// Background, scene, fog etc.
 export const scene = new THREE.Scene();
 
 const gridHelper = new THREE.GridHelper( 100, 100 );
 scene.add( gridHelper );
 scene.fog = new THREE.Fog(0, 1, 15);
-// TODO: add a box geometry just beneath the grid to make domes out of nukes
+const bottom = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0 }));
+bottom.position.y = -0.51;
+scene.add(bottom);
+// TODO: add a box geometry just beneath the grid to make domes out of nukes?
 
 
 // generate city
 // buildings are cubes scaled in width (x) and height (y), then rotated
 // FIXME: don't generate city as one lump of buildings; generate a few lumps of buildings (each lump has one angle?)
-const box = new THREE.BoxGeometry();
-const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: true } );
 
-export class Building {
-    constructor(x, z, height, width, depth) {
-        let mesh = this.mesh = new THREE.Mesh(box, buildingMaterial);
-        mesh.position.set(
-            x,
-            height/2,
-            z
-        );
+// export class Building {
+//     constructor(x, z, height, width, depth) {
+//         let mesh = this.mesh = new THREE.Mesh(box, buildingMaterial);
+//         mesh.position.set(
+//             x,
+//             height/2,
+//             z
+//         );
         
-        mesh.rotation.y = Random(PI);
-        mesh.scale.y = height;
-        mesh.scale.z = depth;
-        mesh.scale.x = width;
-        scene.add(mesh);
-    }
-    destructor()
-    {
-        scene.remove(this.mesh);
-        // zzfx(...sounds.zzfx_explode2);
-    }
-}
+//         mesh.rotation.y = Random(PI);
+//         mesh.scale.y = height;
+//         mesh.scale.z = depth;
+//         mesh.scale.x = width;
+//         scene.add(mesh);
+//     }
+//     destructor()
+//     {
+//         scene.remove(this.mesh);
+//         // zzfx(...sounds.zzfx_explode2);
+//     }
+// }
 
 function generateCity()
 {
     let buildings = [];
 
-    for(let i = 0; i < 1000; i++)
+    const box = new THREE.BoxGeometry();
+    const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: true } );
+    let buildingPrefab = new THREE.Mesh(box, buildingMaterial);
+
+    const citySize = 5; // 20;
+    const size = 0.1;
+    let rejected = 0;
+
+    for(let i = 0; i < 100 /*1000*/; i++)
     {
-        const citySize = 20;
-        const p = 1;
-        
-        const size = 0.1;
         const height = Random(1,0.2,3);
         const width = Random(size, size);
+        const position = V3(RandomNormalDist(citySize), height/2, RandomNormalDist(citySize));
         
-        const building = new Building(RandomNormalDist(citySize), RandomNormalDist(citySize), height, width, size);
+        // const building = new Building(, height, width, size);
 
         // don't collide buildings
         let collides = false;
         for(let b of buildings) {
-            const s = b.mesh.scale.x;
-            if(b.mesh.position.distanceToSquared(building.mesh.position) < s*s) {
+            let dx = b.x-position.x;
+            let dz = b.z-position.z;
+            let minRadius = b.r + width;
+            if(dx * dx + dz * dz < minRadius * minRadius) {
                 collides = true;
                 break;
             }
         }
 
-        if(collides) continue;
-        ecs.create().add(building, new Actor(building.mesh.position, null), new Damagable(5, 1));
-        buildings.push(building);
+        if(collides) {
+            rejected++;
+            continue;
+        }
+
+        const renderer = new Renderer(buildingPrefab);
+        renderer.mesh.scale.set(width, height, size);
+
+        ecs.create().add(
+            new Transform(position, {r:width}),
+            new DestroyOnCollision(),
+            renderer
+        )
+        buildings.push({x:position.x, z:position.z, r:width});
+    }
+
+    console.log("Rejected buildings", rejected);
+}
+
+
+
+export class Renderer {
+    constructor(prefab) {
+        scene.add(this.mesh = prefab.clone());
+    }
+    destructor() {
+        scene.remove(this.mesh);
     }
 }
+
+// No scale or rotation, apply directly on renderer if needed
+export class Transform {
+    constructor(position, collider = null) {
+        this.position = position;
+        this.collider = collider;
+        this.collision = null;
+        this.delta = V3();
+        this.lastMovedInFrame = -1;
+    }
+    moveBy(delta) {
+        this.position.add(delta);
+        this.delta = delta;
+        this.lastMovedInFrame = frameNumber;
+    }
+    moveTo(position) {
+        this.moveBy(position.clone().sub(this.position));
+    }
+    hasMoved() {
+        return this.lastMovedInFrame == frameNumber;
+    }
+}
+
+// class Collider {
+//     constructor(r) { this.r = r; }
+// }
+
+export class DestroyOnCollision {}
+
+export class MovementAndCollisionsSystem {
+    constructor(ecs) {
+        this.updateMeshesSelector = ecs.select(Transform, Renderer);
+        this.updateCollisionsSelector = ecs.select(Transform);
+        this.destroyOnCollisionSelector = ecs.select(Transform, DestroyOnCollision)
+    }
+    update(dt) {
+        this.updateMeshesSelector.iterate(entity => {
+            let renderer = entity.get(Renderer);
+            let transform = entity.get(Transform);
+            let m = renderer.mesh;
+            m.position.copy(transform.position);
+        });
+
+        // Supported collider types:
+        // {} - point
+        // {r:float} - circle
+        // {r:float, h:float} - vertical capsule
+
+        // TODO: Broad phase
+
+        // Narrow phase
+        this.updateCollisionsSelector.iterate(entityA => {
+            this.updateCollisionsSelector.iterate(entityB => {
+                if(entityA === entityB) return;
+                let a = entityA.get(Transform);
+                let b = entityB.get(Transform);
+                if (!a.collider || !b.collider) return;
+                let distanceSqr = a.position.distanceToSquared(b.position);
+                let minDistToCollide = (a.collider.r || 0) + (b.collider.r || 0);
+                // TODO: vertical capsule collisions
+                if(distanceSqr < minDistToCollide * minDistToCollide) {
+                    a.collides = b;
+                    b.collides = a;
+                    // FIXME: clear collisions
+                    // console.log("Collision:",a,b);
+                }
+            });
+        });
+
+        this.destroyOnCollisionSelector.iterate(entity => {
+            if(entity.get(Transform).collides) entity.eject();
+        });
+    }
+}
+
+
+export class DebugCollidersSystem {
+    constructor(ecs) {
+        this.selector = ecs.select(Transform);
+        this.helpers = [];
+        this.mat = new THREE.MeshBasicMaterial({wireframe:true, color:0xff00ff})
+    }
+    update(dt) {
+        for(let h of this.helpers) scene.remove(h);
+        this.selector.iterate(entity => {
+            let t = entity.get(Transform);
+            if (!t.collider) return;
+
+            let helper;
+            if (t.collider.r) {
+                helper = new THREE.Mesh(new THREE.SphereGeometry(1,8,4), this.mat);
+                helper.scale.set(t.collider.r, t.collider.r, t.collider.r);
+            }
+            else {
+                helper = new THREE.AxesHelper(0.1);
+            }
+
+            helper.position.copy(t.position);
+            scene.add(helper);
+            this.helpers.push(helper);
+        })
+    }
+}
+
 
 /***
  * ECS Classes:
@@ -121,53 +258,7 @@ function generateCity()
  */
 
 
-/**
- * Something that can be damaged, hp is time in fireball proximity that the entity can survive
- */
-export class Damagable {
-    constructor(hp, radius) {
-        this.hp = hp;
-        this.radius = radius; // TODO: box/sphere collisions?
-    }
-}
 
-class DamagableSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Damagable);
-    }
-
-    update(dt) {
-        this.selector.iterate(entity => {
-            const damagable = entity.get(Damagable);
-            if(damagable.hp < 0) {
-                entity.eject();
-            }
-        })
-    }
-}
-
-
-export class Actor {
-    constructor(position) {
-        this.position = position;
-    }
-    destructor() {
-    }
-}
-
-
-class ActorSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Actor);
-    }
-
-    update(dt) {
-        // this.selector.iterate((entity) => {
-        //     const actor = entity.get(Actor);
-        //     actor.mesh.position.copy(actor.position);
-        // });
-    }
-}
 
 const enemyMisslePrefab = new THREE.Group();
 {
@@ -201,7 +292,7 @@ export class Projectile {
 
 class ProjectileSystem {
     constructor(ecs) {
-        this.selector = ecs.select(Projectile);
+        this.selector = ecs.select(Projectile, Transform);
     }
 
     update(dt) {
@@ -230,20 +321,10 @@ class ProjectileSystem {
  * Fireball that damages Damagable instances
  * It grows and collapses in set time, does not move
  */
-class Explosion {
-    static prefab = new THREE.Mesh(new THREE.SphereGeometry(), new THREE.MeshLambertMaterial( { emissive: 0xffffff, fog: false } ));
-    constructor(position, size) {
-        this.position = position;
+export class Explosion {
+    constructor(size) {
         this.size = size;
         this.t = 0;
-
-        // Note: reinvented Actor here a bit, this keeps it simpler
-
-        this.mesh = Explosion.prefab.clone();
-        this.mesh.position.copy(position);
-        this.mesh.scale.set(0,0,0);
-        scene.add(this.mesh);
-
         zzfx(...sounds.zzfx_explode);
         // TODO: if explosion at ground, do a torus as shockwave
     }
@@ -258,8 +339,7 @@ class Explosion {
  */
 class ExplosionSystem {
     constructor(ecs) {
-        this.selector = ecs.select(Explosion);
-        this.damagableActorSelector = ecs.select(Damagable, Actor);
+        this.selector = ecs.select(Explosion, Transform, Renderer);
     }
 
     update(dt) {
@@ -274,42 +354,35 @@ class ExplosionSystem {
             }
             
             let radius = Math.sin(22/7 * explosion.t) * explosion.size;
-            explosion.mesh.scale.set(radius/2,radius/2,radius/2);
-
-            // TODO: some kind of space partitioning
-            this.damagableActorSelector.iterate((da) => {
-                const damagable = da.get(Damagable);
-                const actor = da.get(Actor);
-
-                const md = damagable.radius + radius;
-                const d = actor.position.distanceToSquared(explosion.position);
-                if( d < md*md )
-                {
-                    damagable.hp -= 999;
-                }
-            });
+            entity.get(Transform).collider.r = radius;
+            entity.get(Renderer).mesh.scale.set(radius,radius,radius);
         });
     }
 }
 
-function explode(position)
+const explosionPrefab = new THREE.Mesh(new THREE.SphereGeometry(), new THREE.MeshLambertMaterial( { emissive: 0xffffff, fog: false } ));
+explosionPrefab.scale.set(0,0,0);
+
+
+export function explode(position)
 {
-    ecs.create().add(new Explosion(position, 1));
+    ecs.create().add(new Explosion(0.5), new Transform(position, {r:0}), new Renderer(explosionPrefab));
 }
 
 
 
-ecs.register(Explosion, Damagable, Actor, Projectile, Trail, Building);
-ecs.process(new ExplosionSystem(ecs), new DamagableSystem(ecs), new ActorSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs));
+ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision);
+ecs.process(new ExplosionSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs), new MovementAndCollisionsSystem(ecs), new DebugCollidersSystem(ecs));
+
+
+const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
+
+
 
 // setInterval(() => {
 //     // explode(new THREE.Vector3(RandomNormalDist(8),0.5,RandomNormalDist(8)));
 //     ecs.create().add(new Projectile(V3(RandomNormalDist(8),Random(8),RandomNormalDist(8)), V3(RandomNormalDist(8),0.5,RandomNormalDist(8)), 1, enemyMisslePrefab));
 // }, 2000 );
-
-
-const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
-
 
 
 /*
@@ -345,10 +418,12 @@ export const turret = V3(0,0,0);
 export function fire(start, end) {
     ecs.create().add(
         new Projectile(start, end, 10, enemyMisslePrefab),
+        new Transform(start, {}),
         new Trail(enemyLineMaterial, 500));
 }
 
 fire(V3(10,5,3), V3(0,0.5,0));
+setInterval(() => { fire(V3(10,5,3), V3(RandomNormalDist(5), 0, RandomNormalDist(5))); }, 1000);
 
 const cameraGroup = new THREE.Group();
 cameraGroup.position.set(0,0,0);
@@ -361,8 +436,8 @@ const gripController = new GripController(renderer.xr, new THREE.AxesHelper(0.1)
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
     const dt = clock.getDelta();
-    ecs.update(dt);
     gripController.update(dt);
+    ecs.update(dt);
     
 	renderer.render( scene, camera );
 
@@ -372,11 +447,13 @@ renderer.setAnimationLoop(() => {
         renderer.xr.enabled = false;
         let oldFramebuffer = renderer._framebuffer;
         renderer.state.bindXRFramebuffer( null );
-        renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830 - Unneeded?
+        renderer.setRenderTarget( renderer.getRenderTarget() ); // Hack #15830 - Unneeded? Needed.
         renderer.render(scene, camera);
         renderer.xr.enabled = true;
         renderer.state.bindXRFramebuffer(oldFramebuffer);
     }
+
+    frameNumber++;
 } );
 
 generateCity();
