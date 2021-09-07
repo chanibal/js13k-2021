@@ -6,15 +6,12 @@ import { GripController } from "./GripController.js";
 import { Trail, TrailSystem } from "./Trail.js";
 
 export const renderer = new THREE.WebGLRenderer();
-export const scene = new THREE.Scene();
-export const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-
-// Aliases to popular types:
-export const V3 = (x,y,z) => new THREE.Vector3(x,y,z);
-const Mat = THREE.MeshLambertMaterial;
-
 renderer.xr.enabled = true;
 renderer.antialias = true;
+
+export const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+camera.position.set(0, 1.7, 0);
+camera.lookAt(-5,-3,-1);
 
 function onWindowResize() {
     renderer.setPixelRatio( window.devicePixelRatio );
@@ -28,11 +25,10 @@ onWindowResize();
 document.body.appendChild( renderer.domElement );
 
 
-
-camera.position.set(0, 1.7, 0);
-camera.lookAt(-5,-3,-1);
-
-
+// Aliases to popular types:
+export const V3 = (x,y,z) => new THREE.Vector3(x,y,z);
+const PI = Math.PI;
+// const Mat = THREE.MeshLambertMaterial;
 
 function Random(scale = 1, base = 0, pow = 1) { 
     return base + Math.pow(Math.random(), pow) * scale; 
@@ -43,12 +39,13 @@ function RandomNormalDist(scale = 1, base = 0) {
     return base + (r()+r()+r()+r()+r()-2.5)/5 * scale; 
 }
 
-const PI = Math.PI;
 
 
 
 
 // Background, fog etc
+export const scene = new THREE.Scene();
+
 const gridHelper = new THREE.GridHelper( 100, 100 );
 scene.add( gridHelper );
 scene.fog = new THREE.Fog(0, 1, 15);
@@ -58,42 +55,60 @@ scene.fog = new THREE.Fog(0, 1, 15);
 // generate city
 // buildings are cubes scaled in width (x) and height (y), then rotated
 // FIXME: don't generate city as one lump of buildings; generate a few lumps of buildings (each lump has one angle?)
-const buildings = [];
 const box = new THREE.BoxGeometry();
 const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: true } );
 
-for(let i = 0; i < 1000; i++)
-{
-    const citySize = 20;
-    const p = 1;
-    
-    const size = 0.1;
-    const height = Random(1,0.2,3);
-    const building = new THREE.Mesh(box, buildingMaterial);
-    building.position.set(
-        RandomNormalDist(citySize),
-        height/2,
-        RandomNormalDist(citySize),
-    );
-
-    // don't collide buildings
-    let collides = false;
-    for(let b of buildings) {
-        const s = b.scale.x;
-        if(b.position.distanceToSquared(building.position) < s*s) {
-            collides = true;
-            break;
-        }
+export class Building {
+    constructor(x, z, height, width, depth) {
+        let mesh = this.mesh = new THREE.Mesh(box, buildingMaterial);
+        mesh.position.set(
+            x,
+            height/2,
+            z
+        );
+        
+        mesh.rotation.y = Random(PI);
+        mesh.scale.y = height;
+        mesh.scale.z = depth;
+        mesh.scale.x = width;
+        scene.add(mesh);
     }
+    destructor()
+    {
+        scene.remove(this.mesh);
+        // zzfx(...sounds.zzfx_explode2);
+    }
+}
 
-    if(collides) continue;
+function generateCity()
+{
+    let buildings = [];
 
-    building.rotation.y = Random(PI);
-    building.scale.y = height;
-    building.scale.z = size;
-    building.scale.x = Random(size, size);
-    buildings.push(building);
-    scene.add(building);
+    for(let i = 0; i < 1000; i++)
+    {
+        const citySize = 20;
+        const p = 1;
+        
+        const size = 0.1;
+        const height = Random(1,0.2,3);
+        const width = Random(size, size);
+        
+        const building = new Building(RandomNormalDist(citySize), RandomNormalDist(citySize), height, width, size);
+
+        // don't collide buildings
+        let collides = false;
+        for(let b of buildings) {
+            const s = b.mesh.scale.x;
+            if(b.mesh.position.distanceToSquared(building.mesh.position) < s*s) {
+                collides = true;
+                break;
+            }
+        }
+
+        if(collides) continue;
+        ecs.create().add(building, new Actor(building.mesh.position, null), new Damagable(5, 1));
+        buildings.push(building);
+    }
 }
 
 /***
@@ -109,7 +124,7 @@ for(let i = 0; i < 1000; i++)
 /**
  * Something that can be damaged, hp is time in fireball proximity that the entity can survive
  */
-class Damagable {
+export class Damagable {
     constructor(hp, radius) {
         this.hp = hp;
         this.radius = radius; // TODO: box/sphere collisions?
@@ -124,23 +139,19 @@ class DamagableSystem {
     update(dt) {
         this.selector.iterate(entity => {
             const damagable = entity.get(Damagable);
-            if(damagable.hp < 0) entity.eject();
+            if(damagable.hp < 0) {
+                entity.eject();
+            }
         })
     }
 }
 
 
-class Actor {
-    constructor(position, meshPrefab) {
-        this.mesh = meshPrefab.clone(); 
+export class Actor {
+    constructor(position) {
         this.position = position;
-
-        this.mesh.position.copy(position);
-        scene.add(this.mesh);
     }
     destructor() {
-        scene.remove(this.mesh);
-        zzfx(...sounds.zzfx_explode2);
     }
 }
 
@@ -151,10 +162,10 @@ class ActorSystem {
     }
 
     update(dt) {
-        this.selector.iterate((entity) => {
-            const actor = entity.get(Actor);
-            actor.mesh.position.copy(actor.position);
-        });
+        // this.selector.iterate((entity) => {
+        //     const actor = entity.get(Actor);
+        //     actor.mesh.position.copy(actor.position);
+        // });
     }
 }
 
@@ -187,9 +198,6 @@ export class Projectile {
         scene.remove(this.mesh);
     }
 }
-
-window.ecs = ecs;
-
 
 class ProjectileSystem {
     constructor(ecs) {
@@ -277,7 +285,7 @@ class ExplosionSystem {
                 const d = actor.position.distanceToSquared(explosion.position);
                 if( d < md*md )
                 {
-                    damagable.hp -= dt;
+                    damagable.hp -= 999;
                 }
             });
         });
@@ -291,7 +299,7 @@ function explode(position)
 
 
 
-ecs.register(Explosion, Damagable, Actor, Projectile, Trail);
+ecs.register(Explosion, Damagable, Actor, Projectile, Trail, Building);
 ecs.process(new ExplosionSystem(ecs), new DamagableSystem(ecs), new ActorSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs));
 
 // setInterval(() => {
@@ -336,7 +344,7 @@ export const turret = V3(0,0,0);
 
 export function fire(start, end) {
     ecs.create().add(
-        new Projectile(start, end, 1, enemyMisslePrefab),
+        new Projectile(start, end, 10, enemyMisslePrefab),
         new Trail(enemyLineMaterial, 500));
 }
 
@@ -370,6 +378,8 @@ renderer.setAnimationLoop(() => {
         renderer.state.bindXRFramebuffer(oldFramebuffer);
     }
 } );
+
+generateCity();
 
 
 // export { camera, renderer, scene }

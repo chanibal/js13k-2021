@@ -16,7 +16,7 @@ class PointCollider extends Collider {
 
 }
 
-class CylinderCollider extends Collider {
+class CapsuleCollider extends Collider {
 
 }
 
