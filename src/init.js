@@ -14,7 +14,7 @@ try {
         s.color = "red";
         s.backgroundColor = "#000000cc";
     popup.textContent = `ERROR:\n${ex}`;
-    document.body.appendChild(popup);
+    // document.body.appendChild(popup);
 }
 
 zzfx_volume(0.1);

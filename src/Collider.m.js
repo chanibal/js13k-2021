@@ -20,7 +20,7 @@ class CylinderCollider extends Collider {
 
 }
 
-class ComplexCollider extends Collider{
+class ComplexCollider extends Collider {
 
 }
 

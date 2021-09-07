@@ -2,13 +2,15 @@ import ecs from "./ecs.m.js";
 import * as sounds from "./ZzFX-sounds.js";
 import { zzfx } from "./ZzFX.micro.js";
 import * as Colliders from "./Collider.m.js";
+import { GripController } from "./GripController.js";
+import { Trail, TrailSystem } from "./Trail.js";
 
 export const renderer = new THREE.WebGLRenderer();
 export const scene = new THREE.Scene();
 export const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
 // Aliases to popular types:
-const V3 = (x,y,z) => new THREE.Vector3(x,y,z);
+export const V3 = (x,y,z) => new THREE.Vector3(x,y,z);
 const Mat = THREE.MeshLambertMaterial;
 
 renderer.xr.enabled = true;
@@ -155,66 +157,6 @@ class ActorSystem {
         });
     }
 }
-
-// TODO: Trail fade out
-
-export class Trail {
-    constructor(material, maxPoints = 500) {
-        const g = this.geometry = new THREE.BufferGeometry();
-        const p = this.position = new Float32Array(maxPoints * 3);
-        this.count = 0;
-        this.geometry.setAttribute("position", new THREE.BufferAttribute(p, 3));
-        scene.add(this.mesh = new THREE.Line(this.geometry, material));
-        // TODO: ensure trail has projectile
-    }
-    destructor() {
-        scene.remove(this.mesh);
-    }
-}
-
-class TrailSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Trail, Projectile);
-    }
-    update(dt) {
-        this.selector.iterate((entity) => {
-            const trail = entity.get(Trail);
-            const projectile = entity.get(Projectile);
-
-            const pp = projectile.position;
-            const tp = trail.position;
-            let c = trail.count;
-
-            // optimization: don't draw more points if angle is not that different
-            // http://paulbourke.net/geometry/pointlineplane/source.c ?
-            if (c >= 6) {
-                const a = V3(tp[c-6], tp[c-5], tp[c-4]);
-                const b = V3(tp[c-3], tp[c-2], tp[c-1]);
-                // debugger;
-                const l = new THREE.Line3(a, pp);
-                const d = V3();
-                l.closestPointToPoint(b, true, d);
-                const deviation = d.distanceTo(b);
-                const len = l.distance();
-                if(deviation/len < 0.01) {
-                    // console.log("Saved a point", deviation, c);
-                    c -= 3;
-                }
-            }
-
-            if(c > tp.length) return;
-            tp[c++] = pp.x;
-            tp[c++] = pp.y;
-            tp[c++] = pp.z;
-            trail.count = c;
-
-            trail.geometry.setDrawRange(0, c/3);
-            trail.mesh.geometry.attributes.position.needsUpdate = true
-        });
-    }
-}
-
-
 
 const enemyMisslePrefab = new THREE.Group();
 {
@@ -390,9 +332,9 @@ function message(msg) {
 setInterval(() => { message(+new Date()) }, 1000);
 */
 
-const turret = V3(0,0,0);
+export const turret = V3(0,0,0);
 
-function fire(start, end) {
+export function fire(start, end) {
     ecs.create().add(
         new Projectile(start, end, 1, enemyMisslePrefab),
         new Trail(enemyLineMaterial, 500));
@@ -405,70 +347,6 @@ cameraGroup.position.set(0,0,0);
 scene.add(cameraGroup);
 cameraGroup.add(camera);
 
-class GripController {
-    constructor(rendererXr, prefab, cameraGroup) {
-        this.controllers = [
-            rendererXr.getControllerGrip(0),
-            rendererXr.getControllerGrip(1)
-        ];
-        this.gizmos = [
-            prefab.clone(),
-            prefab.clone()
-        ];
-        for (let g of this.gizmos) scene.add(g);
-        for (let c of this.controllers)
-        {
-            c.addEventListener("select", (ev) => fire(turret, c.position));
-            c.addEventListener("squeezestart", () => this.squeezestart(c));
-            c.addEventListener("squeezeend", () => this.squeezeend(c));
-        }
-        this.cameraGroup = cameraGroup;
-    }
-    update(dt) {
-        for(let i = 0; i < 2; i++)
-        {
-            let g = this.gizmos[i];
-            let c = this.controllers[i];
-            g.position.copy(c.position);
-            g.rotation.copy(c.rotation);
-        }
-
-        if(this.dragOrigin) {
-            const scale = 5;
-            let diff = this.dragOrigin.clone().sub(this.dragController.position);
-            diff.y = 0;
-            diff.multiplyScalar(5);
-            diff.add(this.camOrigin);
-            this.cameraGroup.position.copy(diff);
-        }
-
-        if(this.controllerDiffStart) {
-            const diff = this.controllers[0].position.distanceTo(this.controllers[1].position);
-            const ratio = diff/this.controllerDiffStart;
-            this.cameraGroup.scale.copy(this.camStartScale);
-            this.cameraGroup.scale.multiplyScalar(ratio);
-            console.log("ratio", ratio);
-        }
-    }
-    squeezestart(c) {
-        // Start single hand gesture
-        if(!this.dragOrigin) {
-            this.dragOrigin = c.position.clone();
-            this.dragController = c;
-            this.camOrigin = this.cameraGroup.position.clone();
-        }
-        // Start two hand gesture
-        else {
-            this.squeezeend();
-            this.controllerDiffStart = this.controllers[0].position.distanceTo(this.controllers[1].position);
-            this.camStartScale = this.cameraGroup.scale.clone();
-        }
-    }
-    squeezeend(c) {
-        delete this.dragOrigin;
-        delete this.controllerDiffStart;
-    }
-}
 
 const gripController = new GripController(renderer.xr, new THREE.AxesHelper(0.1), cameraGroup);
 

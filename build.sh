@@ -13,7 +13,7 @@ cat << END
 		<script type="module">
 END
 
-npx rollup --format es init.js | npx terser --module -c passes=2 -m #--mangle-props
+npx rollup --format es src/init.js | npx terser --module -c passes=2 -m #--mangle-props
 
 cat << END
 		</script>
