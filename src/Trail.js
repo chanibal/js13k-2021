@@ -1,4 +1,4 @@
-import { scene, Projectile, V3 } from "./game.js";
+import { scene, Projectile, V3, Transform } from "./game.js";
 
 // TODO: Trail fade out
 
@@ -9,7 +9,6 @@ export class Trail {
         this.count = 0;
         this.geometry.setAttribute("position", new THREE.BufferAttribute(p, 3));
         scene.add(this.mesh = new THREE.Line(this.geometry, material));
-        // TODO: ensure trail has projectile
     }
     destructor() {
         scene.remove(this.mesh);
@@ -18,19 +17,19 @@ export class Trail {
 
 export class TrailSystem {
     constructor(ecs) {
-        this.selector = ecs.select(Trail, Projectile);
+        // TODO: ensure trail has transform
+        this.selector = ecs.select(Trail /*, Transform */);
     }
     update(dt) {
         this.selector.iterate((entity) => {
             const trail = entity.get(Trail);
-            const projectile = entity.get(Projectile);
+            const transform = entity.get(Transform);
 
-            const pp = projectile.position;
+            const pp = transform.position;
             const tp = trail.position;
             let c = trail.count;
 
             // optimization: don't draw more points if angle is not that different
-            // http://paulbourke.net/geometry/pointlineplane/source.c ?
             if (c >= 6) {
                 const a = V3(tp[c - 6], tp[c - 5], tp[c - 4]);
                 const b = V3(tp[c - 3], tp[c - 2], tp[c - 1]);

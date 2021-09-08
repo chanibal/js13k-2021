@@ -1,7 +1,6 @@
 import ecs from "./ecs.m.js";
 import * as sounds from "./ZzFX-sounds.js";
 import { zzfx } from "./ZzFX.micro.js";
-import * as Colliders from "./Collider.m.js";
 import { GripController } from "./GripController.js";
 import { Trail, TrailSystem } from "./Trail.js";
 
@@ -170,7 +169,11 @@ export class Transform {
 //     constructor(r) { this.r = r; }
 // }
 
-export class DestroyOnCollision {}
+export class DestroyOnCollision {
+    constructor(onDestroy = null) {
+        this.onDestroy = onDestroy;
+    }
+}
 
 export class MovementAndCollisionsSystem {
     constructor(ecs) {
@@ -213,7 +216,11 @@ export class MovementAndCollisionsSystem {
         });
 
         this.destroyOnCollisionSelector.iterate(entity => {
-            if(entity.get(Transform).collides) entity.eject();
+            if (!entity.get(Transform).collides) return;
+
+            let onDestroy = entity.get(DestroyOnCollision).onDestroy;
+            if (onDestroy) onDestroy(entity);
+            entity.eject();
         });
     }
 }
@@ -241,6 +248,7 @@ export class DebugCollidersSystem {
             }
 
             helper.position.copy(t.position);
+            helper.renderOrder = 999;
             scene.add(helper);
             this.helpers.push(helper);
         })
@@ -260,6 +268,44 @@ export class DebugCollidersSystem {
 
 
 
+export class Projectile {
+    constructor(start, destination, speed, prefab) {
+        this.start = start.clone();
+        this.position = start.clone();
+        this.destination = destination.clone();
+        this.speed = speed;
+    }
+}
+
+class ProjectileSystem {
+    constructor(ecs) {
+        this.selector = ecs.select(Projectile, Transform, Renderer);
+    }
+
+    update(dt) {
+        this.selector.iterate((entity) => {
+            const transform = entity.get(Transform);
+            const projectile = entity.get(Projectile);
+            const renderer = entity.get(Renderer);
+
+            // TODO: simple line from-to, maybe a bezier?
+            const dir = projectile.destination.clone().sub(transform.position);
+            const move = dt * projectile.speed;
+            if (move > dir.length()) {  // lengthSq is faster, but a few bytes larger
+                transform.moveTo(projectile.destination);
+                explode(transform.position);
+                entity.eject();
+                return;
+            }
+            dir.normalize();
+            dir.multiplyScalar(move);
+            transform.moveBy(dir);
+            
+            renderer.mesh.lookAt(dir.add(transform.position));
+        });
+    }
+}
+
 const enemyMisslePrefab = new THREE.Group();
 {
     const missleMesh = new THREE.ConeGeometry(0.1, 0.3);
@@ -268,53 +314,16 @@ const enemyMisslePrefab = new THREE.Group();
     enemyMisslePrefab.add(missle);
 }
 
-export class Projectile {
-    constructor(start, destination, speed, prefab) {
-        // FIXME: don't double Actor
-        this.start = start.clone();
-        this.position = start.clone();
-        this.destination = destination.clone();
-        this.speed = speed;
-        this.mesh = prefab.clone();
-        this.mesh.position.copy(start);
-        scene.add(this.mesh);
+const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
 
-        const h = new THREE.AxesHelper(0.3);
-        h.position.copy(start);
-        scene.add(h);
-
-        window.m = this.mesh;
-    }
-    destructor() {
-        scene.remove(this.mesh);
-    }
-}
-
-class ProjectileSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Projectile, Transform);
-    }
-
-    update(dt) {
-        this.selector.iterate((entity) => {
-            const projectile = entity.get(Projectile);
-            // TODO: simple line from-to, maybe a bezier?
-            const dir = projectile.destination.clone().sub(projectile.position);
-            const move = dt * projectile.speed;
-            if (move > dir.length()) {  // lengthSq is faster, but a few bytes larger
-                entity.eject();
-                explode(projectile.destination);
-                return;
-            }
-            dir.normalize();
-            dir.multiplyScalar(move);
-            // console.log("projectile", projectile.position, dir);
-            dir.add(projectile.position);
-            projectile.mesh.lookAt(dir);
-            projectile.mesh.position.copy(dir);
-            projectile.position.copy(dir);
-        });
-    }
+export function fire(start, end) {
+    ecs.create().add(
+        new Transform(start, {}),
+        new Projectile(start, end, 10),
+        new Renderer(enemyMisslePrefab),
+        new Trail(enemyLineMaterial, 500),
+        new DestroyOnCollision(e => { explode(e.get(Transform).position) })
+    );
 }
 
 /**
@@ -375,8 +384,6 @@ ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollisi
 ecs.process(new ExplosionSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs), new MovementAndCollisionsSystem(ecs), new DebugCollidersSystem(ecs));
 
 
-const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
-
 
 
 // setInterval(() => {
@@ -415,15 +422,12 @@ setInterval(() => { message(+new Date()) }, 1000);
 
 export const turret = V3(0,0,0);
 
-export function fire(start, end) {
-    ecs.create().add(
-        new Projectile(start, end, 10, enemyMisslePrefab),
-        new Transform(start, {}),
-        new Trail(enemyLineMaterial, 500));
-}
 
 fire(V3(10,5,3), V3(0,0.5,0));
 setInterval(() => { fire(V3(10,5,3), V3(RandomNormalDist(5), 0, RandomNormalDist(5))); }, 1000);
+
+setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 100);
+
 
 const cameraGroup = new THREE.Group();
 cameraGroup.position.set(0,0,0);
