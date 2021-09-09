@@ -36,16 +36,26 @@ camera.lookAt(0,0,0);
 
 
 if(true) {
-    const popup = document.createElement("pre");
+    const popup = document.createElement("div");
     const s = popup.style;
     s.position="absolute";
     s.top = s.left = "5%";
     s.padding = "1em";
     s.color = "green";
     document.body.appendChild(popup);
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.addEventListener("change", () => { window.enableDebugCollidersSystem = checkbox.checked; });
+    popup.appendChild(checkbox);
+    popup.appendChild(document.createTextNode("Collider debug"));
+
+    const pre = document.createElement("pre");
+    popup.appendChild(pre);
+
     let ecs_stats_local = {};
     setInterval(() => { 
         for(let s of Object.keys(window.ecs_stats)) ecs_stats_local[s] = Math.round(ecs_stats[s] * 1000);
-        popup.textContent = [renderer.info.memory, renderer.info.render, ecs_stats_local].map(o => JSON.stringify(o, undefined, "  " )).join("\n");
+        pre.textContent = [renderer.info.memory, renderer.info.render, ecs_stats_local].map(o => JSON.stringify(o, undefined, "  " )).join("\n");
     }, 100);
 }

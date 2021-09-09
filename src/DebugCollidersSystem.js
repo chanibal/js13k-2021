@@ -16,6 +16,9 @@ export class DebugCollidersSystem {
                 h.dispose();
         }
         this.helpers = [];
+
+        if (!window.enableDebugCollidersSystem) return;
+
         this.selector.iterate(entity => {
             let t = entity.get(Transform);
             if (!t.collider)
