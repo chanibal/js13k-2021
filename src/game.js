@@ -136,10 +136,11 @@ function generateCity()
 
 export class Renderer {
     constructor(prefab) {
-        scene.add(this.mesh = prefab.clone());
+        scene.add(this.mesh = prefab.clone(false));
     }
     destructor() {
         scene.remove(this.mesh);
+        // this.mesh.dispose();
     }
 }
 
@@ -206,6 +207,8 @@ export class MovementAndCollisionsSystem {
                 let distanceSqr = a.position.distanceToSquared(b.position);
                 let minDistToCollide = (a.collider.r || 0) + (b.collider.r || 0);
                 // TODO: vertical capsule collisions
+                // https://gist.github.com/cuberoot/b5047c83cf277fee1b82 ?
+                // https://stackoverflow.com/questions/2824478/shortest-distance-between-two-line-segments
                 if(distanceSqr < minDistToCollide * minDistToCollide) {
                     a.collides = b;
                     b.collides = a;
@@ -231,16 +234,23 @@ export class DebugCollidersSystem {
         this.selector = ecs.select(Transform);
         this.helpers = [];
         this.mat = new THREE.MeshBasicMaterial({wireframe:true, color:0xff00ff})
+        this.sphere = new THREE.SphereGeometry(1,8,4);
     }
     update(dt) {
-        for(let h of this.helpers) scene.remove(h);
+        // FIXME: Port to InstancedMesh?
+        for(let h of this.helpers) 
+        {
+            scene.remove(h);
+            if (h.dispose) h.dispose();
+        }
+        this.helpers = [];
         this.selector.iterate(entity => {
             let t = entity.get(Transform);
             if (!t.collider) return;
 
             let helper;
             if (t.collider.r) {
-                helper = new THREE.Mesh(new THREE.SphereGeometry(1,8,4), this.mat);
+                helper = new THREE.Mesh(this.sphere, this.mat);
                 helper.scale.set(t.collider.r, t.collider.r, t.collider.r);
             }
             else {
@@ -337,10 +347,6 @@ export class Explosion {
         zzfx(...sounds.zzfx_explode);
         // TODO: if explosion at ground, do a torus as shockwave
     }
-
-    destructor() {
-        scene.remove(this.mesh);
-    }
 }
 
 /**
@@ -423,10 +429,9 @@ setInterval(() => { message(+new Date()) }, 1000);
 export const turret = V3(0,0,0);
 
 
-fire(V3(10,5,3), V3(0,0.5,0));
-setInterval(() => { fire(V3(10,5,3), V3(RandomNormalDist(5), 0, RandomNormalDist(5))); }, 1000);
-
-setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 100);
+// fire(V3(10,5,3), V3(0,0.5,0));
+setInterval(() => { fire(V3(10,5,3), V3(RandomNormalDist(5), 0, RandomNormalDist(5))); }, 1);
+setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 1);
 
 
 const cameraGroup = new THREE.Group();
@@ -441,7 +446,8 @@ const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
     const dt = clock.getDelta();
     gripController.update(dt);
-    ecs.update(dt);
+    window.ecs_stats = ecs.update(dt);
+    window.ecs_inst = ecs;
     
 	renderer.render( scene, camera );
 

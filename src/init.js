@@ -31,3 +31,18 @@ if(THREE.OrbitControls) {
 
 camera.position.set(0, 10, 0);
 camera.lookAt(0,0,0);
+
+
+if(true) {
+    const popup = document.createElement("pre");
+    const s = popup.style;
+        s.position="absolute";
+        s.top = s.left = "5%";
+        s.border = "3px double red";
+        s.padding = "1em";
+        s.color = "green";
+        s.backgroundColor = "#000000cc";
+    document.body.appendChild(popup);
+    const update = () => { popup.textContent = [renderer.info.memory, renderer.info.render, ecs_stats].map(o => JSON.stringify(o, undefined, "  " )).join("\n"); requestAnimationFrame(update); };
+    update();
+}

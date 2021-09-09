@@ -12,6 +12,7 @@ export class Trail {
     }
     destructor() {
         scene.remove(this.mesh);
+        this.geometry.dispose();
     }
 }
 
