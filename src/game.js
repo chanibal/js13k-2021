@@ -1,12 +1,15 @@
 import ecs from "./ecs.m.js";
-import * as sounds from "./ZzFX-sounds.js";
-import { zzfx } from "./ZzFX.micro.js";
-import { GripController } from "./GripController.js";
 import { Trail, TrailSystem } from "./Trail.js";
+import { DebugCollidersSystem } from "./DebugCollidersSystem.js";
+import { Renderer } from "./Renderer.js";
+import { Projectile, ProjectileSystem } from "./Projectile.js";
+import { explode, Explosion, ExplosionSystem } from "./Explosion.js";
+import { Transform, DestroyOnCollision, MovementAndCollisionsSystem } from "./Transform.js";
+import { GripController } from "./GripController.js";
 
 
 // Basic parts of engine
-let frameNumber = 0;
+export let frameNumber = 0;
 
 export const renderer = new THREE.WebGLRenderer();
 renderer.xr.enabled = true;
@@ -134,188 +137,6 @@ function generateCity()
 
 
 
-export class Renderer {
-    constructor(prefab) {
-        scene.add(this.mesh = prefab.clone(false));
-    }
-    destructor() {
-        scene.remove(this.mesh);
-        // this.mesh.dispose();
-    }
-}
-
-// No scale or rotation, apply directly on renderer if needed
-export class Transform {
-    constructor(position, collider = null) {
-        this.position = position;
-        this.collider = collider;
-        this.collision = null;
-        this.delta = V3();
-        this.lastMovedInFrame = -1;
-    }
-    moveBy(delta) {
-        this.position.add(delta);
-        this.delta = delta;
-        this.lastMovedInFrame = frameNumber;
-    }
-    moveTo(position) {
-        this.moveBy(position.clone().sub(this.position));
-    }
-    hasMoved() {
-        return this.lastMovedInFrame == frameNumber;
-    }
-}
-
-// class Collider {
-//     constructor(r) { this.r = r; }
-// }
-
-export class DestroyOnCollision {
-    constructor(onDestroy = null) {
-        this.onDestroy = onDestroy;
-    }
-}
-
-export class MovementAndCollisionsSystem {
-    constructor(ecs) {
-        this.updateMeshesSelector = ecs.select(Transform, Renderer);
-        this.updateCollisionsSelector = ecs.select(Transform);
-        this.destroyOnCollisionSelector = ecs.select(Transform, DestroyOnCollision)
-    }
-    update(dt) {
-        this.updateMeshesSelector.iterate(entity => {
-            let renderer = entity.get(Renderer);
-            let transform = entity.get(Transform);
-            let m = renderer.mesh;
-            m.position.copy(transform.position);
-        });
-
-        // Supported collider types:
-        // {} - point
-        // {r:float} - circle
-        // {r:float, h:float} - vertical capsule
-
-        // TODO: Broad phase
-
-        // Narrow phase
-        this.updateCollisionsSelector.iterate(entityA => {
-            this.updateCollisionsSelector.iterate(entityB => {
-                if(entityA === entityB) return;
-                let a = entityA.get(Transform);
-                let b = entityB.get(Transform);
-                if (!a.collider || !b.collider) return;
-                let distanceSqr = a.position.distanceToSquared(b.position);
-                let minDistToCollide = (a.collider.r || 0) + (b.collider.r || 0);
-                // TODO: vertical capsule collisions
-                // https://gist.github.com/cuberoot/b5047c83cf277fee1b82 ?
-                // https://stackoverflow.com/questions/2824478/shortest-distance-between-two-line-segments
-                if(distanceSqr < minDistToCollide * minDistToCollide) {
-                    a.collides = b;
-                    b.collides = a;
-                    // FIXME: clear collisions
-                    // console.log("Collision:",a,b);
-                }
-            });
-        });
-
-        this.destroyOnCollisionSelector.iterate(entity => {
-            if (!entity.get(Transform).collides) return;
-
-            let onDestroy = entity.get(DestroyOnCollision).onDestroy;
-            if (onDestroy) onDestroy(entity);
-            entity.eject();
-        });
-    }
-}
-
-
-export class DebugCollidersSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Transform);
-        this.helpers = [];
-        this.mat = new THREE.MeshBasicMaterial({wireframe:true, color:0xff00ff})
-        this.sphere = new THREE.SphereGeometry(1,8,4);
-    }
-    update(dt) {
-        // FIXME: Port to InstancedMesh?
-        for(let h of this.helpers) 
-        {
-            scene.remove(h);
-            if (h.dispose) h.dispose();
-        }
-        this.helpers = [];
-        this.selector.iterate(entity => {
-            let t = entity.get(Transform);
-            if (!t.collider) return;
-
-            let helper;
-            if (t.collider.r) {
-                helper = new THREE.Mesh(this.sphere, this.mat);
-                helper.scale.set(t.collider.r, t.collider.r, t.collider.r);
-            }
-            else {
-                helper = new THREE.AxesHelper(0.1);
-            }
-
-            helper.position.copy(t.position);
-            helper.renderOrder = 999;
-            scene.add(helper);
-            this.helpers.push(helper);
-        })
-    }
-}
-
-
-/***
- * ECS Classes:
- * - Explosion - has radius, destroys every Damagable it touches
- * - Damagable - Explosion destroys it, requires another trait for shape; has points. Action on death?
- * - Collidable - Can collide with something, has shape (cylinder, point, sphere)
- * - Projectile - Has trajectory
- * 
- */
-
-
-
-
-export class Projectile {
-    constructor(start, destination, speed, prefab) {
-        this.start = start.clone();
-        this.position = start.clone();
-        this.destination = destination.clone();
-        this.speed = speed;
-    }
-}
-
-class ProjectileSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Projectile, Transform, Renderer);
-    }
-
-    update(dt) {
-        this.selector.iterate((entity) => {
-            const transform = entity.get(Transform);
-            const projectile = entity.get(Projectile);
-            const renderer = entity.get(Renderer);
-
-            // TODO: simple line from-to, maybe a bezier?
-            const dir = projectile.destination.clone().sub(transform.position);
-            const move = dt * projectile.speed;
-            if (move > dir.length()) {  // lengthSq is faster, but a few bytes larger
-                transform.moveTo(projectile.destination);
-                explode(transform.position);
-                entity.eject();
-                return;
-            }
-            dir.normalize();
-            dir.multiplyScalar(move);
-            transform.moveBy(dir);
-            
-            renderer.mesh.lookAt(dir.add(transform.position));
-        });
-    }
-}
-
 const enemyMisslePrefab = new THREE.Group();
 {
     const missleMesh = new THREE.ConeGeometry(0.1, 0.3);
@@ -335,56 +156,6 @@ export function fire(start, end) {
         new DestroyOnCollision(e => { explode(e.get(Transform).position) })
     );
 }
-
-/**
- * Fireball that damages Damagable instances
- * It grows and collapses in set time, does not move
- */
-export class Explosion {
-    constructor(size) {
-        this.size = size;
-        this.t = 0;
-        zzfx(...sounds.zzfx_explode);
-        // TODO: if explosion at ground, do a torus as shockwave
-    }
-}
-
-/**
- * Handles Explosion objects
- */
-class ExplosionSystem {
-    constructor(ecs) {
-        this.selector = ecs.select(Explosion, Transform, Renderer);
-    }
-
-    update(dt) {
-        this.selector.iterate((entity) => {
-            const scale = 0.5;
-            const explosion = entity.get(Explosion);
-            explosion.t += dt * scale;
-
-            if (explosion.t > 1) { 
-                entity.eject();
-                return;
-            }
-            
-            let radius = Math.sin(22/7 * explosion.t) * explosion.size;
-            entity.get(Transform).collider.r = radius;
-            entity.get(Renderer).mesh.scale.set(radius,radius,radius);
-        });
-    }
-}
-
-const explosionPrefab = new THREE.Mesh(new THREE.SphereGeometry(), new THREE.MeshLambertMaterial( { emissive: 0xffffff, fog: false } ));
-explosionPrefab.scale.set(0,0,0);
-
-
-export function explode(position)
-{
-    ecs.create().add(new Explosion(0.5), new Transform(position, {r:0}), new Renderer(explosionPrefab));
-}
-
-
 
 ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision);
 ecs.process(new ExplosionSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs), new MovementAndCollisionsSystem(ecs), new DebugCollidersSystem(ecs));

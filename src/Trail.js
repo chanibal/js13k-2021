@@ -1,4 +1,5 @@
-import { scene, Projectile, V3, Transform } from "./game.js";
+import { scene, V3 } from "./game.js";
+import { Transform } from "./Transform.js";
 
 // TODO: Trail fade out
 
@@ -18,7 +19,7 @@ export class Trail {
 
 export class TrailSystem {
     constructor(ecs) {
-        // TODO: ensure trail has transform
+        // Ensure trail has transform
         this.selector = ecs.select(Trail /*, Transform */);
     }
     update(dt) {
