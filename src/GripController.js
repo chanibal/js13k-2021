@@ -1,4 +1,4 @@
-import { scene, fire, turret } from "./game.js";
+import { scene, fire, turretPosition } from "./game.js";
 
 export class GripController {
     constructor(rendererXr, prefab, cameraGroup) {
@@ -13,7 +13,7 @@ export class GripController {
         for (let g of this.gizmos)
             scene.add(g);
         for (let c of this.controllers) {
-            c.addEventListener("select", (ev) => fire(turret, c.position));
+            c.addEventListener("select", (ev) => fire(turretPosition, c.position));
             c.addEventListener("squeezestart", () => this.squeezestart(c));
             c.addEventListener("squeezeend", () => this.squeezeend(c));
         }

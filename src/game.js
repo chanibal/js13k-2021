@@ -198,11 +198,36 @@ ecs.process(
 
 
 
+export const turretPosition = V3(0,1,0);
 
+{
+    const turretMat = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0x0000ff, xwireframe: true } );
 
+    const sphere = new THREE.SphereGeometry();
+    const box = new THREE.BoxGeometry();
+    const cylinder = new THREE.CylinderGeometry();
+    const base = new THREE.Mesh(sphere, turretMat);
+   base.position.copy(turretPosition);
+
+    const leftTurret = new THREE.Mesh(box, turretMat);
+    leftTurret.position.set(0,0,-2);
+    leftTurret.rotation.set(PI/4, 0, 0);
+    leftTurret.scale.set(5.2,2,2);
+    base.add(leftTurret);
+    const rightTurret = leftTurret.clone();
+    rightTurret.position.z = 2;
+    base.add(rightTurret);
+
+    const tail = new THREE.Mesh(box, turretMat);
+    tail.position.set(-2,0,0);
+    tail.scale.set(3.6,1.2,4);
+    base.add(tail);
+
+    base.scale.set(0.1,0.1,0.1)
+    scene.add(base);
 }
 
-export const turret = V3(0,0,0);
+
 
 
 // fire(V3(10,5,3), V3(0,0.5,0));
