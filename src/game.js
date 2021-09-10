@@ -48,7 +48,7 @@ function RandomNormalDist(scale = 1, base = 0) {
 }
 
 
-// Background, scene, fog etc.
+// Background, scene, sun, fog etc.
 export const scene = new THREE.Scene();
 {
     const gridHelper = new THREE.GridHelper( 100, 100 );
@@ -59,6 +59,23 @@ export const scene = new THREE.Scene();
     const bottom = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0 }));
     bottom.position.y = -0.51;
     scene.add(bottom);
+
+    
+    const sun = new THREE.Group();
+    const sunGizmo = new THREE.Mesh(new THREE.SphereGeometry(), new THREE.MeshBasicMaterial({color: 0xffff99, fog:false}));
+    sunGizmo.position.set(0,1000,0);
+    sunGizmo.scale.set(10,10,10);
+    const sunGizmo2 = sunGizmo.clone();
+    sunGizmo2.scale.set(0.3,0.3,0.3);
+    sunGizmo2.position.set(5,0,0);
+    sunGizmo.add(sunGizmo2);
+    sun.add(sunGizmo);
+
+    const directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
+    sun.add(directionalLight);
+    sun.rotation.set(Math.PI/3,0,0);
+
+    scene.add(sun);
 }
 
 // generate city
