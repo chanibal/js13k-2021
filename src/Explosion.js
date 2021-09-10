@@ -4,6 +4,7 @@ import { zzfx } from "./ZzFX.micro.js";
 import { Renderer } from "./Renderer.js";
 import { Transform } from "./Transform.js";
 import { Collider } from "./Collisions.js";
+import { scene } from "./game.js";
 
 /**
  * Fireball that damages Damagable instances
@@ -30,16 +31,21 @@ export class ExplosionSystem {
         this.selector.iterate((entity) => {
             const scale = 0.5;
             const explosion = entity.get(Explosion);
-            explosion.t += dt * scale;
+            let t = explosion.t += dt * scale;
 
             if (explosion.t > 1) {
                 entity.eject();
                 return;
             }
 
-            let radius = Math.sin(22 / 7 * explosion.t) * explosion.size;
+            let ts = Math.sin(22 / 7 * t);
+            let radius = ts * explosion.size;
             entity.get(Collider).radius = radius;
-            entity.get(Renderer).mesh.scale.set(radius, radius, radius);
+
+            let renderer = entity.get(Renderer);
+            renderer.mesh.scale.set(radius, radius, radius);
+            renderer.mesh.children[0].intensity = ts;
+            renderer.mesh.children[0].needsUpdate = true;
         });
     }
 }
@@ -50,6 +56,9 @@ const explosionPrefab = new THREE.Mesh(
     // new THREE.MeshLambertMaterial({ emissive: 0xffffff, fog: false, transparent: true, opacity: 0.5 })
 );
 explosionPrefab.scale.set(0, 0, 0);
+const light = new THREE.PointLight(0xffffff, 3);
+light.intensity = 0;
+explosionPrefab.add(light);
 
 export function explode(position, size = 0.5) {
     ecs.create().add(new Explosion(size), new Transform(position), new Collider(0), new Renderer(explosionPrefab));
