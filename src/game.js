@@ -4,8 +4,8 @@ import { DebugCollidersSystem } from "./DebugCollidersSystem.js";
 import { Renderer } from "./Renderer.js";
 import { Projectile, ProjectileSystem } from "./Projectile.js";
 import { explode, Explosion, ExplosionSystem } from "./Explosion.js";
-import { Transform, CollisionsSystem, UpdateRendererPositionsSystem } from "./Transform.js";
-import { DestroyOnCollisionSystem, DestroyOnCollision } from "./DestroyOnCollision.js";
+import { Transform, UpdateRendererPositionsSystem } from "./Transform.js";
+import { Collider, CollisionSystem, DestroyOnCollisionSystem, DestroyOnCollision } from "./Collisions.js";
 import { GripController } from "./GripController.js";
 import { message } from "./message.js";
 
@@ -169,7 +169,8 @@ const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
 
 export function fire(start, end) {
     ecs.create().add(
-        new Transform(start, {}),
+        new Transform(start),
+        new Collider(),
         new Projectile(start, end, 10),
         new Renderer(enemyMisslePrefab),
         new Trail(enemyLineMaterial, 500),
@@ -177,18 +178,16 @@ export function fire(start, end) {
     );
 }
 
-ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision);
+ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision, Collider);
 ecs.process(
     new ExplosionSystem(ecs), 
     new ProjectileSystem(ecs), 
     new TrailSystem(ecs), 
-    new CollisionsSystem(ecs), 
+    new CollisionSystem(ecs), 
     new UpdateRendererPositionsSystem(ecs),
     new DebugCollidersSystem(ecs),
     new DestroyOnCollisionSystem(ecs)
 );
-
-
 
 
 // setInterval(() => {

@@ -3,6 +3,7 @@ import * as sounds from "./ZzFX-sounds.js";
 import { zzfx } from "./ZzFX.micro.js";
 import { Renderer } from "./Renderer.js";
 import { Transform } from "./Transform.js";
+import { Collider } from "./Collisions.js";
 
 /**
  * Fireball that damages Damagable instances
@@ -22,7 +23,7 @@ export class Explosion {
  */
 export class ExplosionSystem {
     constructor(ecs) {
-        this.selector = ecs.select(Explosion, Transform, Renderer);
+        this.selector = ecs.select(Explosion, Transform, Renderer, Collider);
     }
 
     update(dt) {
@@ -37,7 +38,7 @@ export class ExplosionSystem {
             }
 
             let radius = Math.sin(22 / 7 * explosion.t) * explosion.size;
-            entity.get(Transform).collider.r = radius;
+            entity.get(Collider).radius = radius;
             entity.get(Renderer).mesh.scale.set(radius, radius, radius);
         });
     }
@@ -51,5 +52,5 @@ const explosionPrefab = new THREE.Mesh(
 explosionPrefab.scale.set(0, 0, 0);
 
 export function explode(position, size = 0.5) {
-    ecs.create().add(new Explosion(size), new Transform(position, { r: 0 }), new Renderer(explosionPrefab));
+    ecs.create().add(new Explosion(size), new Transform(position), new Collider(0), new Renderer(explosionPrefab));
 }

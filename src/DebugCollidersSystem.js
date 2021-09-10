@@ -1,9 +1,10 @@
 import { scene } from "./game.js";
 import { Transform } from "./Transform.js";
+import { Collider } from "./Collisions.js";
 
 export class DebugCollidersSystem {
     constructor(ecs) {
-        this.selector = ecs.select(Transform);
+        this.selector = ecs.select(Transform, Collider);
         this.helpers = [];
         this.mat = new THREE.MeshBasicMaterial({ wireframe: true, color: 0xff00ff });
         this.mat2 = new THREE.MeshBasicMaterial({ wireframe: true, color: 0xffff00 });
@@ -25,12 +26,11 @@ export class DebugCollidersSystem {
 
         this.selector.iterate(entity => {
             let t = entity.get(Transform);
-            if (!t.collider)
-                return;
+            let c = entity.get(Collider);
 
             let helper;
-            let h = (t.collider.h || 0) / 2;
-            let r = (t.collider.r || 0);
+            let h = c.height / 2;
+            let r = c.radius;
             if (h) {
                 helper = new THREE.Group();
                 const sphereTop = new THREE.Mesh(this.sphereTop, this.mat);
