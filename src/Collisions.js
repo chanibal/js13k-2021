@@ -23,22 +23,48 @@ export class CollisionSystem {
     update(dt) {
         window.stats.collisionsChecked = 0;
         window.stats.collisions = 0;
+        
+        // using broad and narrow phase makes large framerate improvements
+        // collisions ~1074332 -> 10000 (x107)
+        // time ~140000 -> 3000 (x46)
 
-
-
-        // TODO: Broad phase
+        // Clear previous collisions
         this.updateCollisionsSelector.iterate(entity => { entity.collides = null; });
 
+        // Broad phase
+        // indices are: y, x, z
+        const partitions = [];
+        this.updateCollisionsSelector.iterate(entity => {
+            let p = entity.get(Transform).position;
+            let c = entity.get(Collider);
+            let r = c.radius;
+            let h = c.height;
+            const dy = r+h;
+
+            const [x1,x2,y1,y2,z1,z2] = [p.x-r, p.x+r, p.y-dy, p.y+dy, p.z-r, p.z+r].map(Math.floor);
+
+            for (let y = y1; y <= y2; y++) {
+                if (!partitions[y]) partitions[y] = {};
+                for (let x = x1; x <= x2; x++) {
+                    if (!partitions[y][x]) partitions[y][x] = {};
+                    for (let z = z1; z <= z2; z++) {
+                        if (!partitions[y][x][z]) partitions[y][x][z] = [];
+                        partitions[y][x][z].push(entity);
+                    }
+                }
+            }
+            
+        });
 
         // Narrow phase
-        // FIXME: clear collisions
-        // console.log("Collision:",a,b);
-        this.updateCollisionsSelector.iterate(entityA => {
-            // FIXME: no NxN collisions, just half
-
-            this.updateCollisionsSelector.iterate(entityB => {
-                if (entityA === entityB)
-                    return;
+        for (let iy in partitions)
+        for (let ix in partitions[iy])
+        for (let iz in partitions[iy][ix])  {
+            const cell = partitions[iy][ix][iz];
+            for(let e1 = 0; e1 < cell.length; e1++)
+            for(let e2 = e1 + 1; e2 < cell.length; e2++) {
+                let entityA = cell[e1];
+                let entityB = cell[e2];
 
                 window.stats.collisionsChecked++;
 
@@ -87,8 +113,8 @@ export class CollisionSystem {
                     cb.collides = a;
                     window.stats.collisions++;
                 }
-            });
-        });
+            }
+        }
     }
 }
 
