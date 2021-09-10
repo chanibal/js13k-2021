@@ -179,40 +179,90 @@ ecs.process(
 // }, 2000 );
 
 
-/*
-// https://immersiveweb.dev/#three.js
-var geometry = new THREE.CylinderBufferGeometry( 0, 0.05, 0.2, 32 ).rotateX( Math.PI / 2 );
 
-const messageCanvas = document.createElement("canvas");
-messageCanvas.height = messageCanvas.width = 400;
-const messageTex = new THREE.CanvasTexture(messageCanvas);
+
+
+
 const plane = new THREE.PlaneGeometry();
-const mat = new THREE.Material
+function message(text, position, timeout = 5000) {
+    const w = 400;
+    const h = w/2;
 
-const ah = new THREE.AxesHelper(1);
-scene.add(ah);
+    if (typeof position === "undefined")
+    {
+        // TODO: follow
+        position = V3(0,0,1);
+        position.applyQuaternion(camera.quaternion);
+        position.y += camera.position.y;
+        position.y /= 2;
+    }
 
-function message(msg) {
+    const messageCanvas = document.createElement("canvas");
     const ctx = messageCanvas.getContext("2d");
-    ctx.font = '48px serif';
-    ctx.fillText(msg, 10, 50);
-    messageTex.needsUpdate = true;
-    const forward = new THREE.Vector3(0,0,-5);
-    forward.applyMatrix4(renderer.xr.getCamera().matrix);
-    ah.position.set(forward);
-    // scene.add(new THREE.Mesh(plane, ))
+    messageCanvas.width = w;
+    messageCanvas.height = h;
+    const messageTex = new THREE.CanvasTexture(messageCanvas);
+    const mat = new THREE.MeshBasicMaterial({map : messageTex, transparent: true});
+    const messagePlane = new THREE.Mesh(plane, mat);
+    messagePlane.position.copy(position);
+    messagePlane.scale.set(2,1,2);
+    scene.add(messagePlane);
+
+    ctx.strokeStyle = "#f00";
+    ctx.strokeRect(0, 0, w, h);
+
+    ctx.font = "20px consolas";
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+
+    let lines = [];
+    let lineHeight;
+    {
+        // https://www.html5canvastutorials.com/tutorials/html5-canvas-wrap-text-tutorial/
+        let words = (text+"").split(' ');
+        let line = '';
+
+        for(let n = 0; n < words.length; n++) {
+            let testLine = line + words[n] + ' ';
+            let metrics = ctx.measureText(testLine);
+            lineHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+            if (metrics.width > w && n > 0) {
+                lines.push(line.trim());
+                line = words[n] + ' ';
+            }
+            else {
+                line = testLine;
+            }
+        }
+        lines.push(line.trim());
+    }
+
+    let y = h - lineHeight * (lines.length-1);
+    y/=2;
+    for(let line of lines) {
+        ctx.fillText(line, 200, y);
+        console.log(line, y);
+        y += lineHeight;
+    }
+
+
+    setTimeout(() => { 
+        scene.remove(messagePlane);
+        mat.dispose();
+    }, timeout);
+
+    messagePlane.lookAt(camera.position);
 }
-
-
-setInterval(() => { message(+new Date()) }, 1000);
-*/
 
 export const turret = V3(0,0,0);
 
 
 // fire(V3(10,5,3), V3(0,0.5,0));
-setInterval(() => { fire(V3(10,5,3), V3(RandomNormalDist(5), 0, RandomNormalDist(5))); }, 1);
-setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 1);
+// setInterval(() => { fire(V3(10,5,3), V3(RandomNormalDist(5), 0, RandomNormalDist(5))); }, 10);
+// setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 1);
+
+
+setInterval(() => { fire(V3(-5,0.5,0), V3(5,0.5,0)); }, 3000);
 
 
 const cameraGroup = new THREE.Group();
@@ -246,6 +296,12 @@ renderer.setAnimationLoop(() => {
 
     frameNumber++;
 } );
+
+setInterval(() => { 
+    if (gripController.controllerCount > 0) return;
+    message("Two working controllers are required for this game", undefined, 1000);
+}, 1000);
+
 
 generateCity();
 

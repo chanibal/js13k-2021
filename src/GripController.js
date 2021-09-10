@@ -43,6 +43,8 @@ export class GripController {
             this.cameraGroup.scale.multiplyScalar(ratio);
             console.log("ratio", ratio);
         }
+
+        this.controllerCount = this.controllers[0].visible + this.controllers[1].visible;
     }
     squeezestart(c) {
         // Start single hand gesture
