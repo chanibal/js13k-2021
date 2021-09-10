@@ -2,6 +2,8 @@ import XRButtonLite from "./XRButtonLite.js";
 import { zzfx_volume } from "./ZzFX.micro.js";
 zzfx_volume(0.0);
 
+window.stats = {};
+
 
 import { camera, renderer } from "./game.js";
 import * as G from "./game.js";
@@ -54,8 +56,8 @@ if(true) {
     popup.appendChild(pre);
 
     let ecs_stats_local = {};
-    setInterval(() => { 
+    setInterval(() => {
         if (window.ecs_stats) for(let s of Object.keys(window.ecs_stats)) ecs_stats_local[s] = Math.round(ecs_stats[s] * 1000);
-        pre.textContent = [renderer.info.memory, renderer.info.render, ecs_stats_local].map(o => JSON.stringify(o, undefined, "  " )).join("\n");
+        pre.textContent = [renderer.info.memory, renderer.info.render, ecs_stats_local, window.stats].map(o => JSON.stringify(o, undefined, "  " )).join("\n");
     }, 100);
 }

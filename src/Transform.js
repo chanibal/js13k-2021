@@ -44,6 +44,9 @@ export class CollisionsSystem {
         this.updateCollisionsSelector = ecs.select(Transform);
     }
     update(dt) {
+        window.stats.collisionsChecked = 0;
+        window.stats.collisions = 0;
+
         // Supported collider types:
         // {} - point
         // {r:float} - circle
@@ -62,6 +65,9 @@ export class CollisionsSystem {
             this.updateCollisionsSelector.iterate(entityB => {
                 if (entityA === entityB)
                     return;
+
+                window.stats.collisionsChecked++;
+
                 let a = entityA.get(Transform);
                 let b = entityB.get(Transform);
 
@@ -104,6 +110,7 @@ export class CollisionsSystem {
                     // Collision found
                     a.collides = b;
                     b.collides = a;
+                    window.stats.collisions++;
                 }
             });
         });
