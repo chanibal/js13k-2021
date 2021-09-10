@@ -13,7 +13,7 @@ export class GripController {
         for (let g of this.gizmos)
             scene.add(g);
         for (let c of this.controllers) {
-            c.addEventListener("select", (ev) => fire(turretPosition, c.position));
+            c.addEventListener("select", (ev) => fire(turretPosition, c.position, 10));
             c.addEventListener("squeezestart", () => this.squeezestart(c));
             c.addEventListener("squeezeend", () => this.squeezeend(c));
         }

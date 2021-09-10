@@ -1,6 +1,6 @@
 import XRButtonLite from "./XRButtonLite.js";
 import { zzfx_volume } from "./ZzFX.micro.js";
-zzfx_volume(0.0);
+zzfx_volume(0.1);
 
 window.stats = {};
 
@@ -33,7 +33,7 @@ if(THREE.OrbitControls) {
     controls.update();
 }
 
-camera.position.set(0, 10, 0);
+camera.position.set(0, 7, -5);
 camera.lookAt(0,0,0);
 
 

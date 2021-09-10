@@ -53,7 +53,8 @@ export const scene = new THREE.Scene();
 {
     const gridHelper = new THREE.GridHelper( 100, 100 );
     scene.add( gridHelper );
-    scene.fog = new THREE.Fog(0, 1, 15);
+    scene.fog = new THREE.Fog(0x1d212c, 1, 15);
+    scene.background = new THREE.Color(0x1d212c);
 
     // A box geometry just beneath the grid to make domes out of nukes hitting ground
     const bottom = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0 }));
@@ -74,6 +75,9 @@ export const scene = new THREE.Scene();
     const directionalLight = new THREE.DirectionalLight( 0xffffff, 0.5 );
     sun.add(directionalLight);
     sun.rotation.set(Math.PI/3,0,0);
+
+    // TODO: in space stage add particles for velocity
+    // https://github.com/mrdoob/three.js/blob/master/examples/webgl_points_sprites.html
 
     scene.add(sun);
 }
@@ -112,11 +116,11 @@ function generateCity()
     const buildingMaterial = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0xccffcc, opacity: 0.4, transparent: true } );
     let buildingPrefab = new THREE.Mesh(box, buildingMaterial);
 
-    const citySize = 5; // 20;
+    const citySize = 20;
     const size = 0.1;
     let rejected = 0;
 
-    for(let i = 0; i < 100 /*1000*/; i++)
+    for(let i = 0; i < 10000 /*1000*/; i++)
     {
         const height = Random(1,0.2,3);
         const width = Random(size, size);
@@ -143,14 +147,18 @@ function generateCity()
 
         const renderer = new Renderer(buildingPrefab);
         renderer.mesh.scale.set(width, height, size);
+        renderer.mesh.rotation.y = Random(PI);
 
         ecs.create().add(
-            new Transform(position, {r:Math.sqrt(width*width/4+size*size/4), h:height}),
+            new Transform(position),
+            new Collider(Math.sqrt(width*width/4+size*size/4), height),
             new DestroyOnCollision(),
             renderer
         )
         buildings.push({x:position.x, z:position.z, r:width});
     }
+
+    // TODO: Building on destruction should leave rubble (grayed out much lower version)
 
     console.log("Rejected buildings", rejected);
 }
@@ -167,11 +175,12 @@ const enemyMisslePrefab = new THREE.Group();
 
 const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
 
-export function fire(start, end) {
+export function fire(start, end, speed) {
+    if(!speed ) throw "";
     ecs.create().add(
         new Transform(start),
         new Collider(),
-        new Projectile(start, end, 10),
+        new Projectile(start, end, speed),
         new Renderer(enemyMisslePrefab),
         new Trail(enemyLineMaterial, 500),
         new DestroyOnCollision(e => { explode(e.get(Transform).position) })
@@ -189,7 +198,6 @@ ecs.process(
     new DestroyOnCollisionSystem(ecs)
 );
 
-
 // setInterval(() => {
 //     // explode(new THREE.Vector3(RandomNormalDist(8),0.5,RandomNormalDist(8)));
 //     ecs.create().add(new Projectile(V3(RandomNormalDist(8),Random(8),RandomNormalDist(8)), V3(RandomNormalDist(8),0.5,RandomNormalDist(8)), 1, enemyMisslePrefab));
@@ -197,16 +205,16 @@ ecs.process(
 
 
 
-export const turretPosition = V3(0,1,0);
+export const turretPosition = V3(0,1.5,-1);
 
 {
-    const turretMat = new THREE.MeshLambertMaterial( { color: 0x00ff00, emissive: 0x0000ff, xwireframe: true } );
+    const turretMat = new THREE.MeshPhongMaterial( { color: 0x00ff00, emissive: 0x0000cc, specular: 0xffffff } );
 
     const sphere = new THREE.SphereGeometry();
     const box = new THREE.BoxGeometry();
     const cylinder = new THREE.CylinderGeometry();
     const base = new THREE.Mesh(sphere, turretMat);
-   base.position.copy(turretPosition);
+    base.position.copy(turretPosition);
 
     const leftTurret = new THREE.Mesh(box, turretMat);
     leftTurret.position.set(0,0,-2);
@@ -234,7 +242,7 @@ export const turretPosition = V3(0,1,0);
 // setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 1);
 
 
-setInterval(() => { fire(V3(-5,0.5,0), V3(5,0.5,0)); }, 3000);
+setInterval(() => { fire(V3(-5,0.5,0), V3(5,0.5,0), 3); }, 3000);
 
 
 const cameraGroup = new THREE.Group();
