@@ -3,8 +3,6 @@ import { V3, frameNumber } from "./game.js";
 
 // No scale or rotation, apply directly on renderer if needed
 
-
-
 export class Transform {
     constructor(position, collider = null) {
         this.position = position;
@@ -25,9 +23,6 @@ export class Transform {
         return this.lastMovedInFrame == frameNumber;
     }
 }
-// class Collider {
-//     constructor(r) { this.r = r; }
-// }
 
 export class DestroyOnCollision {
     constructor(onDestroy = null) {
@@ -35,11 +30,28 @@ export class DestroyOnCollision {
     }
 }
 
-export class MovementAndCollisionsSystem {
+export class DestroyOnCollisionSystem {
+    constructor(ecs) {
+        this.destroyOnCollisionSelector = ecs.select(Transform, DestroyOnCollision);
+
+    }
+    update(dt) {
+        this.destroyOnCollisionSelector.iterate(entity => {
+            if (!entity.get(Transform).collides)
+                return;
+
+            let onDestroy = entity.get(DestroyOnCollision).onDestroy;
+            if (onDestroy)
+                onDestroy(entity);
+            entity.eject();
+        });
+    }
+}
+
+
+export class UpdateRendererPositionsSystem {
     constructor(ecs) {
         this.updateMeshesSelector = ecs.select(Transform, Renderer);
-        this.updateCollisionsSelector = ecs.select(Transform);
-        this.destroyOnCollisionSelector = ecs.select(Transform, DestroyOnCollision);
     }
     update(dt) {
         this.updateMeshesSelector.iterate(entity => {
@@ -48,7 +60,14 @@ export class MovementAndCollisionsSystem {
             let m = renderer.mesh;
             m.position.copy(transform.position);
         });
+    }
+}
 
+export class CollisionsSystem {
+    constructor(ecs) {
+        this.updateCollisionsSelector = ecs.select(Transform);
+    }
+    update(dt) {
         // Supported collider types:
         // {} - point
         // {r:float} - circle
@@ -79,8 +98,6 @@ export class MovementAndCollisionsSystem {
                 if (minDistToCollide == 0)
                     return;
 
-                let collides = false;
-
                 let ha = a.collider.h || 0;
                 let hb = b.collider.h || 0;
                 let pa = a.position;
@@ -109,16 +126,6 @@ export class MovementAndCollisionsSystem {
                     b.collides = a;
                 }
             });
-        });
-
-        this.destroyOnCollisionSelector.iterate(entity => {
-            if (!entity.get(Transform).collides)
-                return;
-
-            let onDestroy = entity.get(DestroyOnCollision).onDestroy;
-            if (onDestroy)
-                onDestroy(entity);
-            entity.eject();
         });
     }
 }

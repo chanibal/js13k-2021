@@ -4,7 +4,8 @@ import { DebugCollidersSystem } from "./DebugCollidersSystem.js";
 import { Renderer } from "./Renderer.js";
 import { Projectile, ProjectileSystem } from "./Projectile.js";
 import { explode, Explosion, ExplosionSystem } from "./Explosion.js";
-import { Transform, DestroyOnCollision, MovementAndCollisionsSystem } from "./Transform.js";
+import { Transform, CollisionsSystem, UpdateRendererPositionsSystem } from "./Transform.js";
+import { DestroyOnCollisionSystem, DestroyOnCollision } from "./DestroyOnCollision.js";
 import { GripController } from "./GripController.js";
 
 
