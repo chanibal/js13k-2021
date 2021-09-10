@@ -7,7 +7,7 @@ export class Transform {
     constructor(position, collider = null) {
         this.position = position;
         this.collider = collider;
-        this.collision = null;
+        this.collides = null;
         this.delta = V3();
         this.lastMovedInFrame = -1;
     }
@@ -24,31 +24,6 @@ export class Transform {
     }
 }
 
-export class DestroyOnCollision {
-    constructor(onDestroy = null) {
-        this.onDestroy = onDestroy;
-    }
-}
-
-export class DestroyOnCollisionSystem {
-    constructor(ecs) {
-        this.destroyOnCollisionSelector = ecs.select(Transform, DestroyOnCollision);
-
-    }
-    update(dt) {
-        this.destroyOnCollisionSelector.iterate(entity => {
-            if (!entity.get(Transform).collides)
-                return;
-
-            let onDestroy = entity.get(DestroyOnCollision).onDestroy;
-            if (onDestroy)
-                onDestroy(entity);
-            entity.eject();
-        });
-    }
-}
-
-
 export class UpdateRendererPositionsSystem {
     constructor(ecs) {
         this.updateMeshesSelector = ecs.select(Transform, Renderer);
@@ -63,6 +38,7 @@ export class UpdateRendererPositionsSystem {
     }
 }
 
+
 export class CollisionsSystem {
     constructor(ecs) {
         this.updateCollisionsSelector = ecs.select(Transform);
@@ -72,7 +48,11 @@ export class CollisionsSystem {
         // {} - point
         // {r:float} - circle
         // {r:float, h:float} - vertical capsule
+
         // TODO: Broad phase
+        this.updateCollisionsSelector.iterate(entity => { entity.collides = null; });
+
+
         // Narrow phase
         // FIXME: clear collisions
         // console.log("Collision:",a,b);
