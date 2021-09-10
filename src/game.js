@@ -49,15 +49,16 @@ function RandomNormalDist(scale = 1, base = 0) {
 
 // Background, scene, fog etc.
 export const scene = new THREE.Scene();
+{
+    const gridHelper = new THREE.GridHelper( 100, 100 );
+    scene.add( gridHelper );
+    scene.fog = new THREE.Fog(0, 1, 15);
 
-const gridHelper = new THREE.GridHelper( 100, 100 );
-scene.add( gridHelper );
-scene.fog = new THREE.Fog(0, 1, 15);
-const bottom = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0 }));
-bottom.position.y = -0.51;
-scene.add(bottom);
-// TODO: add a box geometry just beneath the grid to make domes out of nukes?
-
+    // A box geometry just beneath the grid to make domes out of nukes hitting ground
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(100, 1, 100), new THREE.MeshBasicMaterial({ color: 0 }));
+    bottom.position.y = -0.51;
+    scene.add(bottom);
+}
 
 // generate city
 // buildings are cubes scaled in width (x) and height (y), then rotated
@@ -126,7 +127,7 @@ function generateCity()
         renderer.mesh.scale.set(width, height, size);
 
         ecs.create().add(
-            new Transform(position, {r:width}),
+            new Transform(position, {r:Math.sqrt(width*width/4+size*size/4), h:height}),
             new DestroyOnCollision(),
             renderer
         )
@@ -159,7 +160,15 @@ export function fire(start, end) {
 }
 
 ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision);
-ecs.process(new ExplosionSystem(ecs), new ProjectileSystem(ecs), new TrailSystem(ecs), new MovementAndCollisionsSystem(ecs), new DebugCollidersSystem(ecs));
+ecs.process(
+    new ExplosionSystem(ecs), 
+    new ProjectileSystem(ecs), 
+    new TrailSystem(ecs), 
+    new CollisionsSystem(ecs), 
+    new UpdateRendererPositionsSystem(ecs),
+    new DebugCollidersSystem(ecs),
+    new DestroyOnCollisionSystem(ecs)
+);
 
 
 

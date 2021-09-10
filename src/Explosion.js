@@ -43,9 +43,13 @@ export class ExplosionSystem {
     }
 }
 
-const explosionPrefab = new THREE.Mesh(new THREE.SphereGeometry(), new THREE.MeshLambertMaterial({ emissive: 0xffffff, fog: false }));
+const explosionPrefab = new THREE.Mesh(
+    new THREE.SphereGeometry(), 
+    new THREE.MeshLambertMaterial({ emissive: 0xffffff, fog: false })
+    // new THREE.MeshLambertMaterial({ emissive: 0xffffff, fog: false, transparent: true, opacity: 0.5 })
+);
 explosionPrefab.scale.set(0, 0, 0);
 
-export function explode(position) {
-    ecs.create().add(new Explosion(0.5), new Transform(position, { r: 0 }), new Renderer(explosionPrefab));
+export function explode(position, size = 0.5) {
+    ecs.create().add(new Explosion(size), new Transform(position, { r: 0 }), new Renderer(explosionPrefab));
 }
