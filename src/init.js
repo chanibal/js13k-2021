@@ -33,7 +33,7 @@ if(THREE.OrbitControls) {
     controls.update();
 }
 
-camera.position.set(0, 7, -5);
+camera.position.set(0, 2, -5);
 camera.lookAt(0,0,0);
 
 

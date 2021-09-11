@@ -206,7 +206,7 @@ ecs.process(
 
 
 export const turretPosition = V3(0,1.5,-1);
-
+const crosshair = new THREE.Group();
 {
     const turretMat = new THREE.MeshPhongMaterial( { color: 0x00ff00, emissive: 0x0000cc, specular: 0xffffff } );
 
@@ -232,6 +232,20 @@ export const turretPosition = V3(0,1.5,-1);
 
     base.scale.set(0.1,0.1,0.1)
     scene.add(base);
+
+    const c = new THREE.Mesh(cylinder, turretMat);
+    c.scale.set(0.1, 1, 0.1);
+    c.rotation.set(0,0,PI/2);
+    c.position.set(-1,0,0);
+    crosshair.add(c.clone());
+    c.position.set(1,0,0);
+    crosshair.add(c.clone());
+    c.rotation.set(PI/2,0,0);
+    c.position.set(0,0,-1);
+    crosshair.add(c.clone());
+    c.position.set(0,0,1);
+    crosshair.add(c);
+    crosshair.scale.set(0.1,0.1,0.1);
 }
 
 
@@ -247,11 +261,15 @@ setInterval(() => { fire(V3(-5,0.5,0), V3(5,0.5,0), 3); }, 3000);
 
 const cameraGroup = new THREE.Group();
 cameraGroup.position.set(0,0,0);
+cameraGroup.scale.set(5,5,5);
 scene.add(cameraGroup);
 cameraGroup.add(camera);
 
 
-const gripController = new GripController(renderer.xr, new THREE.AxesHelper(0.1), cameraGroup);
+const gripController = new GripController(renderer.xr, crosshair, cameraGroup);
+window.gg = gripController;
+gripController.select = (position) => { fire(turretPosition, position, 10); };
+
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
@@ -273,6 +291,9 @@ renderer.setAnimationLoop(() => {
         renderer.xr.enabled = true;
         renderer.state.bindXRFramebuffer(oldFramebuffer);
     }
+
+    const scale = cameraGroup.scale.x;
+    scene.fog = new THREE.Fog(0x1d212c, 2/scale, 30/scale);
 
     frameNumber++;
 } );

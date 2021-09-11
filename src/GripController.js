@@ -1,5 +1,3 @@
-import { scene, fire, turretPosition } from "./game.js";
-
 export class GripController {
     constructor(rendererXr, prefab, cameraGroup) {
         this.controllers = [
@@ -10,10 +8,16 @@ export class GripController {
             prefab.clone(),
             prefab.clone()
         ];
-        for (let g of this.gizmos)
-            scene.add(g);
-        for (let c of this.controllers) {
-            c.addEventListener("select", (ev) => fire(turretPosition, c.position, 10));
+        this.select = (p,c) => {};
+        for (let i = 0; i < 2; i++)
+        {
+            cameraGroup.add(this.gizmos[i]);
+            let c = this.controllers[i];
+            c.addEventListener("select", (ev) => { 
+                let p = new THREE.Vector3();
+                this.gizmos[i].getWorldPosition(p);
+                this.select(p, c);
+            });
             c.addEventListener("squeezestart", () => this.squeezestart(c));
             c.addEventListener("squeezeend", () => this.squeezeend(c));
         }
@@ -27,21 +31,25 @@ export class GripController {
             g.rotation.copy(c.rotation);
         }
 
-        if (this.dragOrigin) {
-            const scale = 5;
-            let diff = this.dragOrigin.clone().sub(this.dragController.position);
-            diff.y = 0;
-            diff.multiplyScalar(5);
-            diff.add(this.camOrigin);
-            this.cameraGroup.position.copy(diff);
-        }
-
+        // Two hand gesture        
         if (this.controllerDiffStart) {
             const diff = this.controllers[0].position.distanceTo(this.controllers[1].position);
-            const ratio = diff / this.controllerDiffStart;
+            const ratio = this.controllerDiffStart/diff;
             this.cameraGroup.scale.copy(this.camStartScale);
             this.cameraGroup.scale.multiplyScalar(ratio);
+            this.cameraGroup.position.copy(this.camOrigin);
+            this.cameraGroup.position.multiplyScalar(ratio);
+            // this.cameraGroup.position.multiplyScalar(ratio);
             console.log("ratio", ratio);
+        }
+        // Single hand gesture
+        else if (this.dragOrigin) {
+            const scale = 5 * this.cameraGroup.scale.x;
+            let diff = this.dragOrigin.clone().sub(this.dragController.position);
+            diff.y = 0;
+            diff.multiplyScalar(scale);
+            diff.add(this.camOrigin);
+            this.cameraGroup.position.copy(diff);
         }
 
         this.controllerCount = this.controllers[0].visible + this.controllers[1].visible;
@@ -56,9 +64,9 @@ export class GripController {
 
         // Start two hand gesture
         else {
-            this.squeezeend();
             this.controllerDiffStart = this.controllers[0].position.distanceTo(this.controllers[1].position);
             this.camStartScale = this.cameraGroup.scale.clone();
+            this.camOrigin = this.cameraGroup.position.clone();
         }
     }
     squeezeend(c) {
