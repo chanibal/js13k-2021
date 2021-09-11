@@ -5,7 +5,7 @@ import { V3, frameNumber } from "./game.js";
 
 export class Transform {
     constructor(position) {
-        this.position = position;
+        this.position = position.clone();
         this.delta = V3();
         this.lastMovedInFrame = -1;
     }

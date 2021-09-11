@@ -29,9 +29,9 @@ export class ExplosionSystem {
 
     update(dt) {
         this.selector.iterate((entity) => {
-            const scale = 0.5;
+            const timeScale = 0.5;
             const explosion = entity.get(Explosion);
-            let t = explosion.t += dt * scale;
+            let t = explosion.t += dt * timeScale;
 
             if (explosion.t > 1) {
                 entity.eject();
@@ -60,6 +60,6 @@ const light = new THREE.PointLight(0xffffff, 3);
 light.intensity = 0;
 explosionPrefab.add(light);
 
-export function explode(position, size = 0.5) {
+export function explode(position, size = 2) {
     ecs.create().add(new Explosion(size), new Transform(position), new Collider(0), new Renderer(explosionPrefab));
 }

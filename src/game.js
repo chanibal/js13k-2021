@@ -36,7 +36,6 @@ document.body.appendChild( renderer.domElement );
 // Aliases to popular types:
 export const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x,y,z);
 const PI = Math.PI;
-const Mat = THREE.MeshLambertMaterial;
 
 function Random(scale = 1, base = 0, pow = 1) { 
     return base + Math.pow(Math.random(), pow) * scale; 
@@ -52,7 +51,9 @@ function RandomNormalDist(scale = 1, base = 0) {
 export const scene = new THREE.Scene();
 {
     const gridHelper = new THREE.GridHelper( 100, 100 );
-    scene.add( gridHelper );
+    scene.add(gridHelper.clone());
+    gridHelper.scale.set(10,10,10);
+    scene.add(gridHelper);
     scene.fog = new THREE.Fog(0x1d212c, 1, 15);
     scene.background = new THREE.Color(0x1d212c);
 
@@ -86,27 +87,14 @@ export const scene = new THREE.Scene();
 // buildings are cubes scaled in width (x) and height (y), then rotated
 // FIXME: don't generate city as one lump of buildings; generate a few lumps of buildings (each lump has one angle?)
 
-// export class Building {
-//     constructor(x, z, height, width, depth) {
-//         let mesh = this.mesh = new THREE.Mesh(box, buildingMaterial);
-//         mesh.position.set(
-//             x,
-//             height/2,
-//             z
-//         );
-        
-//         mesh.rotation.y = Random(PI);
-//         mesh.scale.y = height;
-//         mesh.scale.z = depth;
-//         mesh.scale.x = width;
-//         scene.add(mesh);
-//     }
-//     destructor()
-//     {
-//         scene.remove(this.mesh);
-//         // zzfx(...sounds.zzfx_explode2);
-//     }
-// }
+
+class Scorable {
+    constructor(points) {
+        this.points = points;
+    }
+}
+
+let totalPoints = 0;
 
 function generateCity()
 {
@@ -120,7 +108,7 @@ function generateCity()
     const size = 0.1;
     let rejected = 0;
 
-    for(let i = 0; i < 10000 /*1000*/; i++)
+    for(let i = 0; i < 10000; i++)
     {
         const height = Random(1,0.2,3);
         const width = Random(size, size);
@@ -149,20 +137,24 @@ function generateCity()
         renderer.mesh.scale.set(width, height, size);
         renderer.mesh.rotation.y = Random(PI);
 
+        const points = ~~(1000000 * width*height*size);
+        totalPoints += points;
+        
         ecs.create().add(
             new Transform(position),
             new Collider(Math.sqrt(width*width/4+size*size/4), height),
             new DestroyOnCollision(),
+            new Scorable(points),
             renderer
-        )
-        buildings.push({x:position.x, z:position.z, r:width});
+            )
+            buildings.push({x:position.x, z:position.z, r:width});
     }
-
+    
     // TODO: Building on destruction should leave rubble (grayed out much lower version)
-
+    
+    console.log("TOTAL POINTS", totalPoints);
     console.log("Rejected buildings", rejected);
 }
-
 
 
 const enemyMisslePrefab = new THREE.Group();
@@ -187,7 +179,7 @@ export function fire(start, end, speed) {
     );
 }
 
-ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision, Collider);
+ecs.register(Explosion, Projectile, Trail, Transform, Renderer, DestroyOnCollision, Collider, Scorable);
 ecs.process(
     new ExplosionSystem(ecs), 
     new ProjectileSystem(ecs), 
@@ -256,7 +248,22 @@ const crosshair = new THREE.Group();
 // setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 1);
 
 
-setInterval(() => { fire(V3(-5,0.5,0), V3(5,0.5,0), 3); }, 3000);
+// Gameplay:
+// Surface: survive until ships have escaped
+//  attacks are from 3 origins, each more rapid than another; 10 second wait between
+//  goal: over 50% surviving, ships count
+//  at end boss fight?
+// Transition: move up through fog
+// Space:
+//  the same, but fleet of ships and attacks are more vertical and comming from enemy ships
+//  destroy all ships to complete
+// The end:
+//  score how many survived
+let enemyOrigin = V3(0, 20, -20);
+setInterval(() => {
+    let target = V3(RandomNormalDist(25), 0, RandomNormalDist(25))
+    fire(V3(RandomNormalDist(1), RandomNormalDist(1), RandomNormalDist(1)).add(enemyOrigin), target, 3); 
+}, 3000);
 
 
 const cameraGroup = new THREE.Group();

@@ -3,7 +3,7 @@ import { Transform } from "./Transform.js";
 import { explode } from "./Explosion.js";
 
 export class Projectile {
-    constructor(start, destination, speed, prefab) {
+    constructor(start, destination, speed) {
         this.start = start.clone();
         this.position = start.clone();
         this.destination = destination.clone();
