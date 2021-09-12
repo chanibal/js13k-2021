@@ -101,13 +101,73 @@ class Game {
         this.lastScoreSum = 0;
 
         this.over = false;
+
+        this.wave = 0;
+        this.waitForNextWave = 10;
+
+        
+        
     }
     update(dt) {
         if (this.over) return;
+        
+        if (this.time == 0) {
+            ecs.select(Transform).iterate(t => t.eject());
+            generateCity();
+        }
+
         this.time += dt;
 
-        let remain = totalPoints - (this.died + this.rescued);
-        if (remain < totalPoints * 0.25) this.over = true;
+        let percent = ~~(100 * (1 - (this.died + this.rescued) / totalPoints));
+        if (percent < 25) this.over = true;
+
+
+        // Gameplay:
+        // Surface: survive until ships have escaped
+        //  attacks are from 3 origins, each more rapid than another; 10 second wait between
+        //  goal: over 50% surviving, ships count
+        //  at end boss fight?
+        // Transition: move up through fog
+        // Space:
+        //  the same, but fleet of ships and attacks are more vertical and comming from enemy ships
+        //  destroy all ships to complete
+        // The end:
+        //  score how many survived
+        // setInterval(() => {
+        //     let target = V3(RandomNormalDist(25), 0, RandomNormalDist(25))
+        //     
+        // }, 3000);
+
+        this.waitForNextWave -= dt;
+        if (this.waitForNextWave < 0) {
+            this.wave++;
+            this.waitForNextWave = 10;
+            message(`Bombardment\nimminent!`);
+
+            let enemyOrigin = V3(0, 20, -20);
+
+            let missles = 2 + this.wave;
+            let bomardmentTime = 3;
+
+            this.events = [];
+            for (let m = 0; m < missles; m++) {
+                // TODO: choose building at random?
+                let target = V3(RandomNormalDist(25), 0, RandomNormalDist(25));
+                let origin = V3(RandomNormalDist(1), RandomNormalDist(1), RandomNormalDist(1)).add(enemyOrigin);
+                this.events.push([
+                    Random(bomardmentTime) + this.time, 
+                    () => fire(origin, target, 3)
+                ]);
+            }
+        }
+
+        // Event execution
+        this.events = this.events.filter(e => {
+            if(e[0] > this.time) return true;
+
+            e[1]();
+            return false;
+        });
     }
     score(points) {
         this.points += points;
@@ -117,6 +177,7 @@ class Game {
         }
         this.lastScoreSum += points;
         let remain = totalPoints - (this.died + this.rescued);
+
         let percent = ~~(100 * (1 - (this.died + this.rescued) / totalPoints));
 
         if (this.lastScoreSum < 0) {
@@ -131,25 +192,7 @@ class Game {
 }
 
 
-
-// Gameplay:
-// Surface: survive until ships have escaped
-//  attacks are from 3 origins, each more rapid than another; 10 second wait between
-//  goal: over 50% surviving, ships count
-//  at end boss fight?
-// Transition: move up through fog
-// Space:
-//  the same, but fleet of ships and attacks are more vertical and comming from enemy ships
-//  destroy all ships to complete
-// The end:
-//  score how many survived
-let enemyOrigin = V3(0, 20, -20);
-setInterval(() => {
-    let target = V3(RandomNormalDist(25), 0, RandomNormalDist(25))
-    fire(V3(RandomNormalDist(1), RandomNormalDist(1), RandomNormalDist(1)).add(enemyOrigin), target, 3); 
-}, 3000);
-
-const game = new Game();
+let game = new Game();
 
 class Scorable {
     constructor(points) {
@@ -347,7 +390,7 @@ cameraGroup.add(camera);
 
 const gripController = new GripController(renderer.xr, crosshair, cameraGroup);
 window.gg = gripController;
-gripController.select = (position) => { if(!game.over) fireTurret(position, 10); };
+gripController.select = (position) => { if(!game.over) fireTurret(position, 10); else game = new Game() };
 
 // must be added after prefab instantiation
 const crosshairCanvases = [];
@@ -384,7 +427,7 @@ renderer.setAnimationLoop(() => {
     }
 
     if (game.over)
-        message(`You have saved your city\nfor ${Math.round(game.time*100)/100} seconds.\n\nCongratulations?\n\nRefresh to restart.`);
+        message(`You have saved your city\nfor ${Math.round(game.time*100)/100} seconds.\n\nCongratulations?\n\nShoot to restart.`);
     
 	renderer.render( scene, camera );
 
@@ -423,5 +466,3 @@ setInterval(() => {
     if (gripController.controllerCount > 0) return;
     message("Two working controllers are required for this game", undefined, 1000);
 }, 10000);
-
-generateCity();
