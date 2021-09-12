@@ -6,11 +6,11 @@
  * @param {?Function} callback optional callback to be called when session starts (with the session as the argument) or ends (with null as the argument)
  */
 export default async (renderer, element, callback) => {
-
-	if (!('xr' in navigator)) throw "No XR";
-	if(!await navigator.xr.isSessionSupported( 'immersive-vr' )) throw "No immersive-vr";
-		
 	let currentSession = null;
+
+	if (!('xr' in navigator)) throw "No XR support in browser.";
+	if(!await navigator.xr.isSessionSupported( 'immersive-vr' )) throw "No immersive-vr. If you just connected your headset, refresh the page.";
+		
 	element.addEventListener("click", async () => {
 
 		async function onSessionStarted( session ) {

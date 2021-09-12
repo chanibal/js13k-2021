@@ -1,13 +1,13 @@
 import { Renderer } from "./Renderer.js";
 import { Transform } from "./Transform.js";
-import { explode } from "./Explosion.js";
 
 export class Projectile {
-    constructor(start, destination, speed) {
+    constructor(start, destination, speed, onTarget) {
         this.start = start.clone();
         this.position = start.clone();
         this.destination = destination.clone();
         this.speed = speed;
+        this.onTarget = onTarget;
     }
 }
 
@@ -27,7 +27,7 @@ export class ProjectileSystem {
             const move = dt * projectile.speed;
             if (move > dir.length()) { // lengthSq is faster, but a few bytes larger
                 transform.moveTo(projectile.destination);
-                explode(transform.position);
+                if (projectile.onTarget) projectile.onTarget(transform.position, entity);
                 entity.eject();
                 return;
             }

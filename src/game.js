@@ -99,10 +99,15 @@ class Game {
         this.rescued = 0;
         this.lastScoreTime = 0;
         this.lastScoreSum = 0;
+
+        this.over = false;
     }
     update(dt) {
+        if (this.over) return;
         this.time += dt;
 
+        let remain = totalPoints - (this.died + this.rescued);
+        if (remain < totalPoints * 0.25) this.over = true;
     }
     score(points) {
         this.points += points;
@@ -112,12 +117,14 @@ class Game {
         }
         this.lastScoreSum += points;
         let remain = totalPoints - (this.died + this.rescued);
+        let percent = ~~(100 * (1 - (this.died + this.rescued) / totalPoints));
+
         if (this.lastScoreSum < 0) {
-            crosshairMessage(`${-this.lastScoreSum} just died\n${remain} remain`, 2);
-            this.died += points;
+            crosshairMessage(`${-this.lastScoreSum} just died\n${remain} (${percent}%) remain`, 2);
+            this.died -= points;
         }
         else {
-            crosshairMessage(`${this.lastScoreSum} rescued\n${remain} remain`, 2);
+            crosshairMessage(`${this.lastScoreSum} rescued\n${remain} (${percent}%) remain`, 2);
             this.rescued += points;
         }
     }
@@ -239,7 +246,7 @@ export function fire(start, end, speed) {
     ecs.create().add(
         new Transform(start),
         new Collider(),
-        new Projectile(start, end, speed),
+        new Projectile(start, end, speed, p => explode(p)),
         new Renderer(enemyMisslePrefab),
         new Trail(enemyLineMaterial, 500),
         new DestroyOnCollision(e => { explode(e.get(Transform).position) })
@@ -250,7 +257,7 @@ export function fireTurret(end, speed) {
     ecs.create().add(
         new Transform(turretPosition),
         new Collider(),
-        new Projectile(turretPosition, end, speed),
+        new Projectile(turretPosition, end, speed, p => explode(p)),
         new Renderer(turretMisslePrefab),
         new Trail(turretLineMaterial, 500),
         new DestroyOnCollision(e => { explode(e.get(Transform).position) })
@@ -333,14 +340,14 @@ const crosshair = new THREE.Group();
 
 const cameraGroup = new THREE.Group();
 cameraGroup.position.set(0,0,0);
-cameraGroup.scale.set(5,5,5);
+cameraGroup.scale.set(8,8,8);
 scene.add(cameraGroup);
 cameraGroup.add(camera);
 
 
 const gripController = new GripController(renderer.xr, crosshair, cameraGroup);
 window.gg = gripController;
-gripController.select = (position) => { fireTurret(position, 10); };
+gripController.select = (position) => { if(!game.over) fireTurret(position, 10); };
 
 // must be added after prefab instantiation
 const crosshairCanvases = [];
@@ -362,18 +369,22 @@ function crosshairMessage(text, timeout) {
     }
 }
 
-crosshairMessage("hello");
+crosshairMessage("press trigger\nto shoot\n\ngrab to move", 100);
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
     // TODO: pause if not presenting
 
     const dt = clock.getDelta();
-    gripController.update(dt);
-    window.ecs_stats = ecs.update(dt);
-    window.ecs_inst = ecs;
+    if (renderer.xr.isPresenting || window.nonXrMode) {
+        gripController.update(dt);
+        window.ecs_stats = ecs.update(dt);
+        window.ecs_inst = ecs;
+        game.update(dt);
+    }
 
-    game.update(dt);
+    if (game.over)
+        message(`You have saved your city\nfor ${Math.round(game.time*100)/100} seconds.\n\nCongratulations?\n\nRefresh to restart.`);
     
 	renderer.render( scene, camera );
 
@@ -408,6 +419,7 @@ renderer.setAnimationLoop(() => {
 } );
 
 setInterval(() => { 
+    if (!renderer.xr.isPresenting) return;
     if (gripController.controllerCount > 0) return;
     message("Two working controllers are required for this game", undefined, 1000);
 }, 10000);

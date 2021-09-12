@@ -120,6 +120,9 @@ export class CollisionSystem {
 
 
 export class DestroyOnCollision {
+    /**
+     * @param {?function} onDestroy return false to cancel destruction
+     */
     constructor(onDestroy = null) {
         this.onDestroy = onDestroy;
     }
@@ -136,8 +139,9 @@ export class DestroyOnCollisionSystem {
                 return;
 
             let onDestroy = entity.get(DestroyOnCollision).onDestroy;
-            if (onDestroy)
-                onDestroy(entity);
+            if (onDestroy) {
+                if(onDestroy(entity) === false) return;
+            }
             entity.eject();
         });
     }
