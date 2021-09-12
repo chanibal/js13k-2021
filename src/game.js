@@ -7,7 +7,7 @@ import { explode, Explosion, ExplosionSystem } from "./Explosion.js";
 import { Transform, UpdateRendererPositionsSystem } from "./Transform.js";
 import { Collider, CollisionSystem, DestroyOnCollisionSystem, DestroyOnCollision } from "./Collisions.js";
 import { GripController } from "./GripController.js";
-import { message } from "./message.js";
+import { message, TextCanvas } from "./message.js";
 
 
 // Basic parts of engine
@@ -88,16 +88,75 @@ export const scene = new THREE.Scene();
 // FIXME: don't generate city as one lump of buildings; generate a few lumps of buildings (each lump has one angle?)
 
 
+class Game {
+    constructor() {
+        this.time = 0;
+        this.points = 0;
+        
+        this.events = [];
+        
+        this.died = 0;
+        this.rescued = 0;
+        this.lastScoreTime = 0;
+        this.lastScoreSum = 0;
+    }
+    update(dt) {
+        this.time += dt;
+
+    }
+    score(points) {
+        this.points += points;
+        if(this.time > this.lastScoreTime + 2 || ((this.lastScoreSum > 0) != (points > 0)) ) {
+            this.lastScoreTime = this.time;
+            this.lastScoreSum = 0;
+        }
+        this.lastScoreSum += points;
+        let remain = totalPoints - (this.died + this.rescued);
+        if (this.lastScoreSum < 0) {
+            crosshairMessage(`${-this.lastScoreSum} just died\n${remain} remain`, 2);
+            this.died += points;
+        }
+        else {
+            crosshairMessage(`${this.lastScoreSum} rescued\n${remain} remain`, 2);
+            this.rescued += points;
+        }
+    }
+}
+
+
+
+// Gameplay:
+// Surface: survive until ships have escaped
+//  attacks are from 3 origins, each more rapid than another; 10 second wait between
+//  goal: over 50% surviving, ships count
+//  at end boss fight?
+// Transition: move up through fog
+// Space:
+//  the same, but fleet of ships and attacks are more vertical and comming from enemy ships
+//  destroy all ships to complete
+// The end:
+//  score how many survived
+let enemyOrigin = V3(0, 20, -20);
+setInterval(() => {
+    let target = V3(RandomNormalDist(25), 0, RandomNormalDist(25))
+    fire(V3(RandomNormalDist(1), RandomNormalDist(1), RandomNormalDist(1)).add(enemyOrigin), target, 3); 
+}, 3000);
+
+const game = new Game();
+
 class Scorable {
     constructor(points) {
         this.points = points;
     }
+    destructor() {
+        game.score(this.points);
+    }
 }
 
-let totalPoints = 0;
-
+let totalPoints;
 function generateCity()
 {
+    totalPoints = 0;
     let buildings = [];
 
     const box = new THREE.BoxGeometry();
@@ -144,7 +203,7 @@ function generateCity()
             new Transform(position),
             new Collider(Math.sqrt(width*width/4+size*size/4), height),
             new DestroyOnCollision(),
-            new Scorable(points),
+            new Scorable(-points),
             renderer
             )
             buildings.push({x:position.x, z:position.z, r:width});
@@ -152,7 +211,7 @@ function generateCity()
     
     // TODO: Building on destruction should leave rubble (grayed out much lower version)
     
-    console.log("TOTAL POINTS", totalPoints);
+    console.log("Total points", totalPoints);
     console.log("Rejected buildings", rejected);
 }
 
@@ -165,16 +224,35 @@ const enemyMisslePrefab = new THREE.Group();
     enemyMisslePrefab.add(missle);
 }
 
+const turretMisslePrefab = new THREE.Group();
+{
+    const missleMesh = new THREE.ConeGeometry(0.1, 0.3);
+    const missle = new THREE.Mesh(missleMesh, new THREE.MeshLambertMaterial( { emissive: 0x00ffcc } ));
+    missle.rotation.set(22/14,0,0);
+    turretMisslePrefab.add(missle);
+}
+
 const enemyLineMaterial = new THREE.LineBasicMaterial( { color: 0xcc0000 } );
+const turretLineMaterial = new THREE.LineBasicMaterial( { color: 0x00cc99 } );
 
 export function fire(start, end, speed) {
-    if(!speed ) throw "";
     ecs.create().add(
         new Transform(start),
         new Collider(),
         new Projectile(start, end, speed),
         new Renderer(enemyMisslePrefab),
         new Trail(enemyLineMaterial, 500),
+        new DestroyOnCollision(e => { explode(e.get(Transform).position) })
+    );
+}
+
+export function fireTurret(end, speed) {
+    ecs.create().add(
+        new Transform(turretPosition),
+        new Collider(),
+        new Projectile(turretPosition, end, speed),
+        new Renderer(turretMisslePrefab),
+        new Trail(turretLineMaterial, 500),
         new DestroyOnCollision(e => { explode(e.get(Transform).position) })
     );
 }
@@ -198,16 +276,15 @@ ecs.process(
 
 
 export const turretPosition = V3(0,1.5,-1);
-const crosshair = new THREE.Group();
+const turret = new THREE.Group();
+scene.add(turret);
+const turretMat = new THREE.MeshPhongMaterial( { color: 0x00ff00, emissive: 0x0000cc, specular: 0xffffff } );
 {
-    const turretMat = new THREE.MeshPhongMaterial( { color: 0x00ff00, emissive: 0x0000cc, specular: 0xffffff } );
 
     const sphere = new THREE.SphereGeometry();
     const box = new THREE.BoxGeometry();
-    const cylinder = new THREE.CylinderGeometry();
-    const base = new THREE.Mesh(sphere, turretMat);
-    base.position.copy(turretPosition);
-
+    let base = new THREE.Mesh(sphere, turretMat);
+    
     const leftTurret = new THREE.Mesh(box, turretMat);
     leftTurret.position.set(0,0,-2);
     leftTurret.rotation.set(PI/4, 0, 0);
@@ -216,15 +293,20 @@ const crosshair = new THREE.Group();
     const rightTurret = leftTurret.clone();
     rightTurret.position.z = 2;
     base.add(rightTurret);
-
+    
     const tail = new THREE.Mesh(box, turretMat);
     tail.position.set(-2,0,0);
     tail.scale.set(3.6,1.2,4);
     base.add(tail);
-
+    
     base.scale.set(0.1,0.1,0.1)
-    scene.add(base);
+    turret.add(base);
+    base.rotation.set(0,-PI/2,0);
+}
 
+const crosshair = new THREE.Group();
+{
+    const cylinder = new THREE.CylinderGeometry();
     const c = new THREE.Mesh(cylinder, turretMat);
     c.scale.set(0.1, 1, 0.1);
     c.rotation.set(0,0,PI/2);
@@ -248,23 +330,6 @@ const crosshair = new THREE.Group();
 // setInterval(() => { explode(V3(3,RandomNormalDist(5)+2, RandomNormalDist(5))); }, 1);
 
 
-// Gameplay:
-// Surface: survive until ships have escaped
-//  attacks are from 3 origins, each more rapid than another; 10 second wait between
-//  goal: over 50% surviving, ships count
-//  at end boss fight?
-// Transition: move up through fog
-// Space:
-//  the same, but fleet of ships and attacks are more vertical and comming from enemy ships
-//  destroy all ships to complete
-// The end:
-//  score how many survived
-let enemyOrigin = V3(0, 20, -20);
-setInterval(() => {
-    let target = V3(RandomNormalDist(25), 0, RandomNormalDist(25))
-    fire(V3(RandomNormalDist(1), RandomNormalDist(1), RandomNormalDist(1)).add(enemyOrigin), target, 3); 
-}, 3000);
-
 
 const cameraGroup = new THREE.Group();
 cameraGroup.position.set(0,0,0);
@@ -275,15 +340,40 @@ cameraGroup.add(camera);
 
 const gripController = new GripController(renderer.xr, crosshair, cameraGroup);
 window.gg = gripController;
-gripController.select = (position) => { fire(turretPosition, position, 10); };
+gripController.select = (position) => { fireTurret(position, 10); };
 
+// must be added after prefab instantiation
+const crosshairCanvases = [];
+function crosshairMessage(text, timeout) {
+    for(let cc of crosshairCanvases) cc.setText(text, timeout);
+}
+{
+    for(let g of gripController.gizmos) {
+        const crosshairCanvas = new TextCanvas();
+        const mp = crosshairCanvas.messagePlane;
+        const gr = new THREE.Group();
+        gr.position.set(0,-0.5,0);
+        gr.scale.set(3,3,3);
+        mp.rotation.set(-PI/2, 0, 0);
+        mp.position.set(0, 0, 0);
+        gr.add(mp);
+        g.add(gr);
+        crosshairCanvases.push(crosshairCanvas);
+    }
+}
+
+crosshairMessage("hello");
 
 const clock = new THREE.Clock();
 renderer.setAnimationLoop(() => {
+    // TODO: pause if not presenting
+
     const dt = clock.getDelta();
     gripController.update(dt);
     window.ecs_stats = ecs.update(dt);
     window.ecs_inst = ecs;
+
+    game.update(dt);
     
 	renderer.render( scene, camera );
 
@@ -302,16 +392,24 @@ renderer.setAnimationLoop(() => {
     const scale = cameraGroup.scale.x;
     scene.fog = new THREE.Fog(0x1d212c, 2/scale, 30/scale);
 
+    // Update turret position/rotation
+    {
+        let look = V3(), p = V3();
+        for (let g of gripController.gizmos) {
+            g.getWorldPosition(p);
+            look.add(p);
+        }
+        look.multiplyScalar(0.5);
+        turret.lookAt(look);
+        turret.position.copy(turretPosition);
+    }
+
     frameNumber++;
 } );
 
 setInterval(() => { 
     if (gripController.controllerCount > 0) return;
     message("Two working controllers are required for this game", undefined, 1000);
-}, 1000);
-
+}, 10000);
 
 generateCity();
-
-
-// export { camera, renderer, scene }
